@@ -1,0 +1,2259 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AI Integration Rollout — The Printers Houst Pvt. Ltd.</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #000;
+    --bg-card: #0a0a0a;
+    --bg-card-hover: #111;
+    --bg-elevated: #111;
+    --border: #222;
+    --border-light: #1a1a1a;
+    --border-hover: #333;
+    --text-primary: #ededed;
+    --text-secondary: #888;
+    --text-tertiary: #666;
+    --text-quaternary: #444;
+    --accent: #0070f3;
+    --accent-hover: #0060df;
+    --accent-light: rgba(0,112,243,0.1);
+    --success: #0070f3;
+    --green: #22c55e;
+    --blue: #3b82f6;
+    --orange: #f97316;
+    --purple: #a855f7;
+    --red: #ef4444;
+    --yellow: #eab308;
+    --cyan: #06b6d4;
+    --pink: #f43f5e;
+    --radius: 8px;
+    --radius-sm: 6px;
+    --radius-lg: 12px;
+    --sidebar-width: 240px;
+    --header-height: 64px;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    background: var(--bg);
+    color: var(--text-primary);
+    font-size: 14px;
+    line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* Layout */
+  .app { display: flex; min-height: 100vh; }
+
+  /* Sidebar */
+  .sidebar {
+    width: var(--sidebar-width);
+    border-right: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    position: fixed;
+    top: 0;
+    left: 0;
+    bottom: 0;
+    z-index: 100;
+    background: var(--bg);
+  }
+
+  .sidebar-header {
+    height: var(--header-height);
+    display: flex;
+    align-items: center;
+    padding: 0 20px;
+    border-bottom: 1px solid var(--border);
+    gap: 10px;
+  }
+
+  .sidebar-logo {
+    width: 28px;
+    height: 28px;
+    background: var(--text-primary);
+    border-radius: 6px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 700;
+    font-size: 14px;
+    color: var(--bg);
+    flex-shrink: 0;
+  }
+
+  .sidebar-title {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--text-primary);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .sidebar-nav { flex: 1; padding: 12px 8px; overflow-y: auto; }
+
+  .nav-section-label {
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--text-tertiary);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    padding: 12px 12px 6px;
+  }
+
+  .nav-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 12px;
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    color: var(--text-secondary);
+    font-size: 13px;
+    font-weight: 500;
+    transition: all 0.15s;
+    user-select: none;
+  }
+
+  .nav-item:hover { background: var(--bg-card-hover); color: var(--text-primary); }
+  .nav-item.active { background: var(--bg-elevated); color: var(--text-primary); }
+
+  .nav-icon {
+    width: 18px;
+    height: 18px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    opacity: 0.7;
+  }
+  .nav-item.active .nav-icon { opacity: 1; }
+
+  .nav-badge {
+    margin-left: auto;
+    font-size: 11px;
+    color: var(--text-tertiary);
+    background: rgba(255,255,255,0.06);
+    padding: 1px 6px;
+    border-radius: 10px;
+  }
+
+  .sidebar-footer {
+    padding: 12px 16px;
+    border-top: 1px solid var(--border);
+    font-size: 11px;
+    color: var(--text-quaternary);
+  }
+
+  /* Main area */
+  .main-area {
+    flex: 1;
+    margin-left: var(--sidebar-width);
+    min-height: 100vh;
+  }
+
+  /* Top bar */
+  .topbar {
+    height: var(--header-height);
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    padding: 0 32px;
+    gap: 16px;
+    position: sticky;
+    top: 0;
+    background: rgba(0,0,0,0.8);
+    backdrop-filter: blur(12px);
+    z-index: 50;
+  }
+
+  .topbar-title {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--text-primary);
+  }
+
+  .topbar-breadcrumb {
+    font-size: 13px;
+    color: var(--text-tertiary);
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .topbar-breadcrumb span { color: var(--text-secondary); }
+
+  .search-box {
+    margin-left: auto;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    padding: 6px 12px;
+    width: 260px;
+    transition: border-color 0.15s;
+  }
+  .search-box:focus-within { border-color: var(--border-hover); }
+
+  .search-box input {
+    background: none;
+    border: none;
+    outline: none;
+    color: var(--text-primary);
+    font-size: 13px;
+    font-family: inherit;
+    width: 100%;
+  }
+  .search-box input::placeholder { color: var(--text-quaternary); }
+
+  .search-icon { color: var(--text-quaternary); font-size: 14px; flex-shrink: 0; }
+  .search-kbd {
+    font-size: 10px;
+    color: var(--text-quaternary);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 1px 5px;
+    flex-shrink: 0;
+  }
+
+  /* Content */
+  .content { padding: 32px; max-width: 1200px; }
+
+  .page { display: none; }
+  .page.active { display: block; }
+
+  .page-header { margin-bottom: 32px; }
+  .page-title { font-size: 24px; font-weight: 600; color: var(--text-primary); margin-bottom: 4px; letter-spacing: -0.3px; }
+  .page-desc { font-size: 14px; color: var(--text-secondary); max-width: 640px; }
+
+  /* KPI cards */
+  .kpi-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 12px; margin-bottom: 32px; }
+
+  .kpi-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 20px;
+    transition: border-color 0.15s;
+  }
+  .kpi-card:hover { border-color: var(--border-hover); }
+
+  .kpi-label { font-size: 12px; color: var(--text-secondary); margin-bottom: 8px; }
+  .kpi-value { font-size: 32px; font-weight: 700; color: var(--text-primary); letter-spacing: -1px; line-height: 1; }
+  .kpi-sub { font-size: 12px; color: var(--text-tertiary); margin-top: 4px; }
+
+  /* Section headers */
+  .section-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 16px;
+  }
+  .section-title { font-size: 16px; font-weight: 600; color: var(--text-primary); }
+
+  /* Timeline cards */
+  .timeline-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 32px; }
+
+  .timeline-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 20px;
+    position: relative;
+    overflow: hidden;
+    transition: border-color 0.15s;
+  }
+  .timeline-card:hover { border-color: var(--border-hover); }
+
+  .timeline-card::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 2px;
+  }
+  .timeline-card.t1::before { background: var(--green); }
+  .timeline-card.t2::before { background: var(--blue); }
+  .timeline-card.t3::before { background: var(--orange); }
+  .timeline-card.t4::before { background: var(--purple); }
+
+  .tc-tier { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.8px; margin-bottom: 4px; }
+  .t1 .tc-tier { color: var(--green); } .t2 .tc-tier { color: var(--blue); }
+  .t3 .tc-tier { color: var(--orange); } .t4 .tc-tier { color: var(--purple); }
+
+  .tc-title { font-size: 15px; font-weight: 600; color: var(--text-primary); margin-bottom: 2px; }
+  .tc-time { font-size: 12px; color: var(--text-secondary); margin-bottom: 16px; }
+  .tc-count { font-size: 28px; font-weight: 700; color: var(--text-primary); letter-spacing: -1px; }
+  .tc-count-label { font-size: 12px; color: var(--text-secondary); }
+  .tc-desc { font-size: 12px; color: var(--text-tertiary); margin-top: 12px; line-height: 1.6; }
+
+  /* Charts row */
+  .charts-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 32px; }
+  .chart-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 24px;
+  }
+  .chart-card h3 { font-size: 14px; font-weight: 600; color: var(--text-primary); margin-bottom: 20px; }
+
+  .donut-wrap { display: flex; align-items: center; gap: 28px; }
+  .donut-legend { display: flex; flex-direction: column; gap: 10px; }
+  .dl-item { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--text-secondary); }
+  .dl-dot { width: 10px; height: 10px; border-radius: 3px; flex-shrink: 0; }
+  .dl-count { color: var(--text-tertiary); font-size: 12px; }
+
+  canvas { max-width: 100%; }
+
+  /* Recommendation box */
+  .rec-box {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 20px;
+    margin-bottom: 32px;
+    border-left: 3px solid var(--accent);
+  }
+  .rec-box h3 { font-size: 14px; font-weight: 600; color: var(--text-primary); margin-bottom: 8px; }
+  .rec-box p { font-size: 13px; color: var(--text-secondary); line-height: 1.7; }
+  .rec-box p strong { color: var(--text-primary); }
+
+  /* Department cards */
+  .dept-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(340px, 1fr)); gap: 12px; }
+
+  .dept-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 20px;
+    transition: border-color 0.15s;
+  }
+  .dept-card:hover { border-color: var(--border-hover); }
+
+  .dept-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; padding-bottom: 12px; border-bottom: 1px solid var(--border); }
+  .dept-name { font-size: 14px; font-weight: 600; color: var(--text-primary); }
+  .dept-count { font-size: 11px; color: var(--text-secondary); background: rgba(255,255,255,0.05); padding: 3px 10px; border-radius: 20px; }
+
+  .use-case { padding: 8px 0; border-bottom: 1px solid var(--border-light); display: flex; align-items: center; gap: 10px; }
+  .use-case:last-child { border-bottom: none; }
+
+  .tier-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+  .tier-dot.t1 { background: var(--green); } .tier-dot.t2 { background: var(--blue); }
+  .tier-dot.t3 { background: var(--orange); } .tier-dot.t4 { background: var(--purple); }
+
+  .uc-name { font-size: 13px; color: var(--text-secondary); flex: 1; }
+  .uc-complexity { font-size: 10px; padding: 2px 6px; border-radius: 4px; font-weight: 500; }
+  .uc-complexity.beginner { background: rgba(34,197,94,0.1); color: var(--green); }
+  .uc-complexity.intermediate { background: rgba(249,115,22,0.1); color: var(--orange); }
+  .uc-complexity.advanced { background: rgba(239,68,68,0.1); color: var(--red); }
+
+  /* Legend */
+  .legend { display: flex; gap: 20px; margin-bottom: 20px; flex-wrap: wrap; }
+  .legend-item { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--text-secondary); }
+  .legend-dot { width: 8px; height: 8px; border-radius: 50%; }
+
+  /* Filter pills */
+  .filter-bar { display: flex; gap: 6px; margin-bottom: 20px; flex-wrap: wrap; }
+  .filter-pill {
+    font-size: 12px;
+    padding: 4px 12px;
+    border-radius: 20px;
+    border: 1px solid var(--border);
+    background: transparent;
+    color: var(--text-secondary);
+    cursor: pointer;
+    transition: all 0.15s;
+    font-family: inherit;
+  }
+  .filter-pill:hover { border-color: var(--border-hover); color: var(--text-primary); }
+  .filter-pill.active { background: var(--text-primary); color: var(--bg); border-color: var(--text-primary); }
+
+  /* Skills table */
+  .table-wrap {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    overflow: hidden;
+  }
+
+  .skills-table { width: 100%; border-collapse: collapse; }
+  .skills-table th {
+    text-align: left;
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--text-secondary);
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--border);
+    background: rgba(255,255,255,0.02);
+  }
+  .skills-table td {
+    padding: 10px 16px;
+    border-bottom: 1px solid var(--border-light);
+    font-size: 13px;
+    color: var(--text-secondary);
+  }
+  .skills-table tr:last-child td { border-bottom: none; }
+  .skills-table tr:hover td { background: rgba(255,255,255,0.02); }
+
+  .badge { display: inline-block; font-size: 11px; padding: 2px 8px; border-radius: 4px; font-weight: 500; }
+  .badge.exists { background: rgba(34,197,94,0.1); color: var(--green); }
+  .badge.partial { background: rgba(234,179,8,0.1); color: var(--yellow); }
+  .badge.custom { background: rgba(239,68,68,0.1); color: var(--red); }
+  .badge.builtin { background: rgba(59,130,246,0.1); color: var(--blue); }
+
+  /* Project list */
+  .project-list { display: flex; flex-direction: column; gap: 8px; }
+
+  .project-item {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 20px;
+    transition: border-color 0.15s;
+  }
+  .project-item:hover { border-color: var(--border-hover); }
+
+  .proj-top { display: flex; align-items: center; gap: 10px; margin-bottom: 4px; }
+  .proj-dept-badge { font-size: 11px; color: var(--accent); font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; }
+  .proj-tier-badge { font-size: 10px; padding: 2px 6px; border-radius: 4px; font-weight: 500; margin-left: auto; }
+
+  .proj-name { font-size: 14px; font-weight: 600; color: var(--text-primary); margin-bottom: 4px; }
+  .proj-desc { font-size: 13px; color: var(--text-tertiary); margin-bottom: 12px; }
+
+  .proj-meta { display: flex; gap: 16px; flex-wrap: wrap; }
+  .proj-meta-item { font-size: 12px; color: var(--text-tertiary); }
+  .proj-meta-item strong { color: var(--text-secondary); font-weight: 500; }
+
+  /* Gap cards */
+  .gap-list { display: flex; flex-direction: column; gap: 8px; }
+  .gap-card { background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius); padding: 20px; border-left: 3px solid var(--red); cursor: pointer; transition: border-color 0.2s, background 0.15s; }
+  .gap-card:hover { background: var(--bg-card-hover); }
+  .gap-card.status-in_progress { border-left-color: var(--orange); }
+  .gap-card.status-resolved { border-left-color: var(--green); }
+  .gap-card .gap-header { display: flex; align-items: center; gap: 8px; }
+  .gap-card .gap-number { font-size: 11px; color: var(--text-quaternary); font-weight: 600; margin-bottom: 4px; }
+  .gap-card .gap-title { font-size: 14px; font-weight: 600; color: var(--text-primary); margin-bottom: 6px; }
+  .gap-card .gap-desc { font-size: 13px; color: var(--text-secondary); line-height: 1.7; }
+  .gap-card .gap-desc strong { color: var(--text-primary); }
+  .gap-status-pill { font-size: 10px; font-weight: 600; text-transform: uppercase; padding: 2px 8px; border-radius: 10px; letter-spacing: 0.5px; }
+  .gap-status-pill.open { background: rgba(239,68,68,0.15); color: #ef4444; }
+  .gap-status-pill.in_progress { background: rgba(249,115,22,0.15); color: #f97316; }
+  .gap-status-pill.resolved { background: rgba(34,197,94,0.15); color: #22c55e; }
+  .gap-chevron { margin-left: auto; color: var(--text-quaternary); transition: transform 0.2s; font-size: 12px; }
+  .gap-card.expanded .gap-chevron { transform: rotate(90deg); }
+  .gap-form { display: none; margin-top: 16px; padding-top: 16px; border-top: 1px solid var(--border); }
+  .gap-card.expanded .gap-form { display: block; }
+  .gap-form-row { margin-bottom: 12px; }
+  .gap-form-label { font-size: 11px; font-weight: 600; color: var(--text-tertiary); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px; }
+  .gap-form-input { width: 100%; background: var(--bg); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 8px 10px; color: var(--text-primary); font-size: 13px; font-family: inherit; resize: vertical; box-sizing: border-box; }
+  .gap-form-input:focus { outline: none; border-color: var(--accent); }
+  .gap-form-input::placeholder { color: var(--text-quaternary); }
+  .gap-linked-skills { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
+  .gap-skill-pill { display: inline-flex; align-items: center; gap: 4px; background: var(--accent-light); color: var(--accent); font-size: 11px; font-weight: 500; padding: 3px 10px; border-radius: 10px; cursor: pointer; }
+  .gap-skill-pill .pill-remove { font-size: 14px; cursor: pointer; opacity: 0.7; }
+  .gap-skill-pill .pill-remove:hover { opacity: 1; }
+  .gap-skill-pill .pill-name { cursor: pointer; }
+  .gap-skill-pill .pill-name:hover { text-decoration: underline; }
+  .gap-actions { display: flex; gap: 8px; margin-top: 16px; flex-wrap: wrap; }
+  .gap-btn { padding: 6px 14px; border-radius: var(--radius-sm); font-size: 12px; font-weight: 500; cursor: pointer; border: 1px solid var(--border); background: var(--bg-card); color: var(--text-secondary); transition: all 0.15s; }
+  .gap-btn:hover { background: var(--bg-card-hover); color: var(--text-primary); }
+  .gap-btn-orange { border-color: var(--orange); color: var(--orange); }
+  .gap-btn-orange:hover { background: rgba(249,115,22,0.1); }
+  .gap-btn-green { border-color: var(--green); color: var(--green); }
+  .gap-btn-green:hover { background: rgba(34,197,94,0.1); }
+  .gap-btn-accent { border-color: var(--accent); color: var(--accent); }
+  .gap-btn-accent:hover { background: var(--accent-light); }
+  .gap-link-dropdown { position: relative; display: inline-block; }
+  .gap-link-menu { display: none; position: absolute; bottom: 100%; left: 0; background: var(--bg-elevated); border: 1px solid var(--border); border-radius: var(--radius-sm); max-height: 200px; overflow-y: auto; min-width: 220px; z-index: 100; margin-bottom: 4px; box-shadow: 0 4px 12px rgba(0,0,0,0.4); }
+  .gap-link-menu.open { display: block; }
+  .gap-link-menu-item { padding: 8px 12px; font-size: 12px; color: var(--text-secondary); cursor: pointer; }
+  .gap-link-menu-item:hover { background: var(--bg-card-hover); color: var(--text-primary); }
+  .gap-progress-bar { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; font-size: 12px; color: var(--text-tertiary); }
+  .gap-progress-track { flex: 1; height: 4px; background: var(--border); border-radius: 2px; overflow: hidden; }
+  .gap-progress-fill { height: 100%; background: var(--green); border-radius: 2px; transition: width 0.3s; }
+
+  /* Custom skills grid */
+  .skills-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 8px; margin-top: 24px; }
+  .skill-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 16px;
+  }
+  .skill-card .skill-name { font-size: 13px; font-weight: 600; color: var(--text-primary); margin-bottom: 2px; }
+  .skill-card .skill-tag { font-size: 10px; color: var(--orange); font-weight: 500; }
+  .skill-card .skill-desc { font-size: 12px; color: var(--text-tertiary); margin-top: 8px; line-height: 1.5; }
+
+  /* Kanban */
+  .kanban-board { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; min-height: 500px; }
+
+  .kanban-col {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 12px;
+    min-height: 400px;
+    transition: border-color 0.15s;
+  }
+  .kanban-col.drag-over { border-color: var(--accent); background: var(--accent-light); }
+
+  .kanban-col-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 12px;
+    padding-bottom: 10px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .kanban-col-title { font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.8px; }
+  .col-backlog .kanban-col-title { color: var(--text-tertiary); }
+  .col-progress .kanban-col-title { color: var(--blue); }
+  .col-blocked .kanban-col-title { color: var(--orange); }
+  .col-done .kanban-col-title { color: var(--green); }
+
+  .kanban-col-count {
+    font-size: 11px;
+    color: var(--text-tertiary);
+    background: rgba(255,255,255,0.04);
+    padding: 2px 8px;
+    border-radius: 10px;
+    font-weight: 500;
+  }
+
+  .epic-card {
+    background: rgba(255,255,255,0.03);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    padding: 12px;
+    margin-bottom: 8px;
+    cursor: grab;
+    transition: all 0.15s;
+  }
+  .epic-card:hover { border-color: var(--border-hover); background: rgba(255,255,255,0.05); }
+  .epic-card.dragging { opacity: 0.4; cursor: grabbing; }
+
+  .epic-card .epic-tier {
+    font-size: 10px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-bottom: 4px;
+  }
+  .epic-card .epic-tier.t1 { color: var(--green); }
+  .epic-card .epic-tier.t2 { color: var(--blue); }
+  .epic-card .epic-tier.t3 { color: var(--orange); }
+  .epic-card .epic-tier.t4 { color: var(--purple); }
+
+  .epic-card .epic-name { font-size: 13px; font-weight: 600; color: var(--text-primary); margin-bottom: 2px; }
+  .epic-card .epic-dept { font-size: 11px; color: var(--text-tertiary); margin-bottom: 8px; }
+
+  .epic-card .epic-items { list-style: none; padding: 0; margin: 0; display: none; }
+  .epic-card.expanded .epic-items { display: block; }
+
+  .epic-card .epic-items li {
+    font-size: 11px;
+    color: var(--text-tertiary);
+    padding: 4px 0 4px 12px;
+    border-left: 2px solid var(--border);
+    margin-bottom: 2px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .item-check {
+    width: 14px;
+    height: 14px;
+    border: 1px solid var(--border-hover);
+    border-radius: 3px;
+    flex-shrink: 0;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 10px;
+    transition: all 0.15s;
+  }
+  .item-check.checked { background: var(--green); border-color: var(--green); color: #fff; }
+  .checked-item { color: var(--text-quaternary) !important; text-decoration: line-through; }
+
+  .epic-toggle {
+    font-size: 11px;
+    color: var(--text-tertiary);
+    cursor: pointer;
+    margin-top: 6px;
+    user-select: none;
+    transition: color 0.15s;
+  }
+  .epic-toggle:hover { color: var(--text-secondary); }
+
+  .epic-progress { height: 2px; background: var(--border); border-radius: 1px; margin-top: 8px; overflow: hidden; }
+  .epic-progress-fill { height: 100%; border-radius: 1px; transition: width 0.3s; }
+  .col-backlog .epic-progress-fill { background: var(--text-quaternary); }
+  .col-progress .epic-progress-fill { background: var(--blue); }
+  .col-blocked .epic-progress-fill { background: var(--orange); }
+  .col-done .epic-progress-fill { background: var(--green); }
+
+  .kanban-legend {
+    display: flex;
+    gap: 12px;
+    margin-bottom: 16px;
+    align-items: center;
+    flex-wrap: wrap;
+  }
+  .kanban-legend-label { font-size: 12px; color: var(--text-quaternary); }
+  .kanban-legend-item { font-size: 12px; display: flex; align-items: center; gap: 4px; color: var(--text-secondary); }
+  .kanban-legend-dot { width: 8px; height: 8px; border-radius: 2px; }
+
+  /* Overall progress bar */
+  .progress-bar-wrap { margin-bottom: 32px; }
+  .progress-bar-header { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 8px; }
+  .progress-bar-label { font-size: 13px; color: var(--text-secondary); }
+  .progress-bar-pct { font-size: 13px; color: var(--text-primary); font-weight: 600; }
+  .progress-bar-track { height: 4px; background: var(--border); border-radius: 2px; overflow: hidden; display: flex; }
+  .progress-bar-fill { height: 100%; transition: width 0.5s; }
+
+  /* Search results highlight */
+  .search-match { display: none; }
+  .search-match.visible { display: block; margin-bottom: 24px; }
+  .search-match-title { font-size: 13px; color: var(--text-secondary); margin-bottom: 12px; }
+  .search-result {
+    padding: 10px 14px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    margin-bottom: 6px;
+    cursor: pointer;
+    transition: all 0.15s;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .search-result:hover { border-color: var(--border-hover); background: var(--bg-card-hover); }
+  .search-result .sr-name { font-size: 13px; color: var(--text-primary); }
+  .search-result .sr-meta { font-size: 11px; color: var(--text-tertiary); margin-left: auto; }
+
+  /* Responsive */
+  @media (max-width: 1100px) {
+    .timeline-grid { grid-template-columns: repeat(2, 1fr); }
+    .kanban-board { grid-template-columns: repeat(2, 1fr); }
+  }
+  @media (max-width: 800px) {
+    .sidebar { display: none; }
+    .main-area { margin-left: 0; }
+    .content { padding: 20px; }
+    .timeline-grid { grid-template-columns: 1fr; }
+    .charts-grid { grid-template-columns: 1fr; }
+    .kanban-board { grid-template-columns: 1fr; }
+    .dept-grid { grid-template-columns: 1fr; }
+    .kpi-grid { grid-template-columns: repeat(2, 1fr); }
+  }
+
+  /* Skill Creator */
+  .sc-layout { display: flex; gap: 0; min-height: 600px; }
+  .sc-list { width: 220px; border-right: 1px solid var(--border); flex-shrink: 0; }
+  .sc-list-header { padding: 12px; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; }
+  .sc-list-header h4 { font-size: 12px; font-weight: 600; color: var(--text-primary); }
+  .sc-list-items { padding: 4px; max-height: 500px; overflow-y: auto; }
+  .sc-list-item { padding: 8px 10px; border-radius: var(--radius-sm); cursor: pointer; font-size: 12px; color: var(--text-secondary); transition: all 0.15s; margin-bottom: 2px; }
+  .sc-list-item:hover { background: var(--bg-card-hover); color: var(--text-primary); }
+  .sc-list-item.sc-active { background: var(--bg-elevated); color: var(--text-primary); }
+  .sc-list-item .sc-item-sub { font-size: 10px; color: var(--text-quaternary); margin-top: 2px; }
+  .sc-editor { flex: 1; padding: 20px; overflow-y: auto; max-height: 700px; }
+  .sc-preview { width: 340px; border-left: 1px solid var(--border); display: flex; flex-direction: column; }
+  .sc-preview-header { padding: 12px; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; }
+  .sc-preview-header h4 { font-size: 12px; font-weight: 600; color: var(--text-primary); }
+  .sc-preview pre { flex: 1; padding: 12px; font-size: 11px; line-height: 1.6; color: var(--text-tertiary); font-family: 'SF Mono', Monaco, Consolas, monospace; overflow: auto; white-space: pre-wrap; word-break: break-word; max-height: 600px; }
+  .sc-section { margin-bottom: 20px; }
+  .sc-section h5 { font-size: 11px; font-weight: 600; color: var(--text-quaternary); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 8px; }
+  .sc-row { display: flex; gap: 8px; margin-bottom: 8px; }
+  .sc-input { background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 6px 10px; font-size: 12px; color: var(--text-primary); font-family: inherit; width: 100%; outline: none; transition: border-color 0.15s; }
+  .sc-input:focus { border-color: var(--border-hover); }
+  .sc-input[readonly] { color: var(--text-quaternary); background: var(--bg); }
+  .sc-textarea { background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 8px 10px; font-size: 12px; color: var(--text-primary); font-family: 'SF Mono', Monaco, Consolas, monospace; width: 100%; outline: none; resize: vertical; transition: border-color 0.15s; min-height: 100px; }
+  .sc-textarea:focus { border-color: var(--border-hover); }
+  .sc-select { background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 6px 10px; font-size: 12px; color: var(--text-primary); font-family: inherit; outline: none; }
+  .sc-btn { font-size: 11px; padding: 4px 10px; border-radius: var(--radius-sm); border: 1px solid var(--border); background: transparent; color: var(--text-secondary); cursor: pointer; font-family: inherit; transition: all 0.15s; }
+  .sc-btn:hover { border-color: var(--border-hover); color: var(--text-primary); }
+  .sc-btn-primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+  .sc-btn-primary:hover { background: var(--accent-hover); }
+  .sc-btn-sm { font-size: 10px; padding: 2px 6px; }
+  .sc-field-row { display: flex; gap: 6px; align-items: center; margin-bottom: 6px; }
+  .sc-field-row .sc-input { flex: 1; }
+  .sc-field-row .sc-select { width: 80px; }
+  .sc-remove { color: var(--text-quaternary); cursor: pointer; font-size: 12px; width: 20px; text-align: center; }
+  .sc-remove:hover { color: var(--red); }
+  .sc-example-card { background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 10px; margin-bottom: 8px; }
+  .sc-example-card textarea { width: 100%; min-height: 50px; }
+  .sc-label { font-size: 10px; color: var(--text-quaternary); margin-bottom: 4px; display: block; }
+  .sc-empty { color: var(--text-quaternary); font-size: 12px; text-align: center; padding: 40px 20px; }
+  .sc-actions { display: flex; gap: 6px; padding: 12px; border-top: 1px solid var(--border); }
+</style>
+</head>
+<body>
+
+<div class="app">
+
+  <!-- Sidebar -->
+  <nav class="sidebar">
+    <div class="sidebar-header">
+      <div class="sidebar-logo">P</div>
+      <div class="sidebar-title">Printers Houst</div>
+    </div>
+    <div class="sidebar-nav">
+      <div class="nav-section-label">Dashboard</div>
+      <div class="nav-item active" onclick="navigate('overview')">
+        <span class="nav-icon"><svg width="16" height="16" viewBox="0 0 16 16" fill="none"><rect x="1" y="1" width="6" height="6" rx="1" stroke="currentColor" stroke-width="1.5"/><rect x="9" y="1" width="6" height="6" rx="1" stroke="currentColor" stroke-width="1.5"/><rect x="1" y="9" width="6" height="6" rx="1" stroke="currentColor" stroke-width="1.5"/><rect x="9" y="9" width="6" height="6" rx="1" stroke="currentColor" stroke-width="1.5"/></svg></span>
+        Overview
+      </div>
+      <div class="nav-item" onclick="navigate('departments')">
+        <span class="nav-icon"><svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M8 1v14M1 8h14" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg></span>
+        Departments
+        <span class="nav-badge">7</span>
+      </div>
+      <div class="nav-item" onclick="navigate('skills')">
+        <span class="nav-icon"><svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M2 4h12M2 8h12M2 12h8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg></span>
+        Skill Mapping
+        <span class="nav-badge">49</span>
+      </div>
+
+      <div class="nav-section-label">Planning</div>
+      <div class="nav-item" onclick="navigate('projects')">
+        <span class="nav-icon"><svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M3 2h10a1 1 0 011 1v10a1 1 0 01-1 1H3a1 1 0 01-1-1V3a1 1 0 011-1z" stroke="currentColor" stroke-width="1.5"/><path d="M5 6h6M5 9h4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg></span>
+        Projects
+        <span class="nav-badge">18</span>
+      </div>
+      <div class="nav-item" onclick="navigate('kanban')">
+        <span class="nav-icon"><svg width="16" height="16" viewBox="0 0 16 16" fill="none"><rect x="1" y="2" width="4" height="12" rx="1" stroke="currentColor" stroke-width="1.5"/><rect x="6" y="2" width="4" height="8" rx="1" stroke="currentColor" stroke-width="1.5"/><rect x="11" y="2" width="4" height="10" rx="1" stroke="currentColor" stroke-width="1.5"/></svg></span>
+        Roadmap Board
+      </div>
+
+      <div class="nav-section-label">Analysis</div>
+      <div class="nav-item" onclick="navigate('gaps')">
+        <span class="nav-icon"><svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M8 1l7 13H1L8 1z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/><path d="M8 6v3M8 11v.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg></span>
+        Gaps & Risks
+        <span class="nav-badge" id="gapNavBadge">7</span>
+      </div>
+
+      <div class="nav-section-label">Tools</div>
+      <div class="nav-item" onclick="navigate('skillcreator')">
+        <span class="nav-icon"><svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M12 2L14 4L8 10H6V8L12 2Z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/><path d="M2 14h12" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg></span>
+        Skill Creator
+        <span class="nav-badge">10</span>
+      </div>
+    </div>
+    <div class="sidebar-footer">
+      Claude Enterprise Rollout<br>March 2026
+    </div>
+  </nav>
+
+  <!-- Main -->
+  <div class="main-area">
+    <div class="topbar">
+      <div class="topbar-breadcrumb">AI Rollout <span>/</span> <span id="breadcrumb">Overview</span></div>
+      <div class="search-box">
+        <span class="search-icon">&#x1F50D;</span>
+        <input type="text" placeholder="Search use cases, skills..." id="searchInput" oninput="handleSearch(this.value)">
+        <span class="search-kbd">/</span>
+      </div>
+    </div>
+
+    <div class="content">
+
+      <!-- Search Results -->
+      <div class="search-match" id="searchResults">
+        <div class="search-match-title" id="searchCount"></div>
+        <div id="searchList"></div>
+      </div>
+
+      <!-- OVERVIEW PAGE -->
+      <div id="overview" class="page active">
+        <div class="page-header">
+          <div class="page-title">AI Integration Rollout</div>
+          <div class="page-desc">Claude Enterprise deployment across 7 departments with 49 use cases. Phased rollout from quick wins to advanced AI integrations.</div>
+        </div>
+
+        <div class="kpi-grid">
+          <div class="kpi-card">
+            <div class="kpi-label">Total Use Cases</div>
+            <div class="kpi-value">49</div>
+          </div>
+          <div class="kpi-card">
+            <div class="kpi-label">Departments</div>
+            <div class="kpi-value">7</div>
+          </div>
+          <div class="kpi-card">
+            <div class="kpi-label">Rollout Phases</div>
+            <div class="kpi-value">4</div>
+          </div>
+          <div class="kpi-card">
+            <div class="kpi-label">Quick Wins (T1)</div>
+            <div class="kpi-value">14</div>
+            <div class="kpi-sub">Ready to deploy</div>
+          </div>
+          <div class="kpi-card">
+            <div class="kpi-label">Custom Skills</div>
+            <div class="kpi-value">10</div>
+            <div class="kpi-sub">To be built</div>
+          </div>
+          <div class="kpi-card">
+            <div class="kpi-label">Timeline</div>
+            <div class="kpi-value">~6mo</div>
+            <div class="kpi-sub">Full deployment</div>
+          </div>
+        </div>
+
+        <!-- Rollout progress -->
+        <div class="progress-bar-wrap">
+          <div class="progress-bar-header">
+            <span class="progress-bar-label">Overall Rollout Progress</span>
+            <span class="progress-bar-pct" id="overallPct">0%</span>
+          </div>
+          <div class="progress-bar-track">
+            <div class="progress-bar-fill" id="progressT1" style="width:0;background:var(--green)"></div>
+            <div class="progress-bar-fill" id="progressT2" style="width:0;background:var(--blue)"></div>
+            <div class="progress-bar-fill" id="progressT3" style="width:0;background:var(--orange)"></div>
+            <div class="progress-bar-fill" id="progressT4" style="width:0;background:var(--purple)"></div>
+          </div>
+        </div>
+
+        <div class="rec-box">
+          <h3>Architecture Recommendation</h3>
+          <p>Instead of 7 department-level Projects, use <strong>~18 functional Projects</strong> grouped by workflow cluster. Many departments have use cases with very different context needs (e.g., Marketing's "Offer Creation" needs a pricing database while "SEO Workflow" needs web search). Splitting by function gives each Project a focused instruction set and relevant knowledge files. <strong>V2 adds 3 new use cases:</strong> Auto Sales Follow-Up, Outbound Enquiry Generation (both Marketing), and AI Travel Desk (Servicing).</p>
+        </div>
+
+        <div class="section-header"><div class="section-title">Phased Rollout Timeline</div></div>
+
+        <div class="timeline-grid">
+          <div class="timeline-card t1">
+            <div class="tc-tier">Tier 1</div>
+            <div class="tc-title">Quick Wins</div>
+            <div class="tc-time">Week 1-4</div>
+            <div class="tc-count">14</div>
+            <div class="tc-count-label">use cases</div>
+            <div class="tc-desc">Claude.ai Projects only. Instructions + knowledge files. Email writers, JD creation, ERP coding help, Excel assistance, configuration suggestions.</div>
+          </div>
+          <div class="timeline-card t2">
+            <div class="tc-tier">Tier 2</div>
+            <div class="tc-title">Cowork Skills</div>
+            <div class="tc-time">Month 2-3</div>
+            <div class="tc-count">14</div>
+            <div class="tc-count-label">use cases</div>
+            <div class="tc-desc">Cowork desktop for power users. File generation (PPTX, XLSX, DOCX, PDF), web search, vendor research, BOM generation, troubleshooting.</div>
+          </div>
+          <div class="timeline-card t3">
+            <div class="tc-tier">Tier 3</div>
+            <div class="tc-title">ERP Integration</div>
+            <div class="tc-time">Month 3-6</div>
+            <div class="tc-count">14</div>
+            <div class="tc-count-label">use cases</div>
+            <div class="tc-desc">Custom MCP connector for your ERP. Unlocks: CRM auto-update, shortage ID, invoicing, Chase Dashboard, reorder alerts, outbound pipeline.</div>
+          </div>
+          <div class="timeline-card t4">
+            <div class="tc-tier">Tier 4</div>
+            <div class="tc-title">Advanced AI</div>
+            <div class="tc-time">Month 6+</div>
+            <div class="tc-count">7</div>
+            <div class="tc-count-label">use cases</div>
+            <div class="tc-desc">External AI tools. AutoCAD scripting, AI image/video generation, IoT predictive maintenance, ad platform APIs, Travel API integration.</div>
+          </div>
+        </div>
+
+        <div class="charts-grid">
+          <div class="chart-card">
+            <h3>Use Cases by Tier</h3>
+            <div class="donut-wrap">
+              <canvas id="tierChart" width="160" height="160"></canvas>
+              <div class="donut-legend">
+                <div class="dl-item"><div class="dl-dot" style="background:var(--green)"></div>T1: Quick Wins <span class="dl-count">(14)</span></div>
+                <div class="dl-item"><div class="dl-dot" style="background:var(--blue)"></div>T2: Cowork Skills <span class="dl-count">(14)</span></div>
+                <div class="dl-item"><div class="dl-dot" style="background:var(--orange)"></div>T3: ERP Integration <span class="dl-count">(14)</span></div>
+                <div class="dl-item"><div class="dl-dot" style="background:var(--purple)"></div>T4: Advanced AI <span class="dl-count">(7)</span></div>
+              </div>
+            </div>
+          </div>
+          <div class="chart-card">
+            <h3>Use Cases by Department</h3>
+            <div class="donut-wrap">
+              <canvas id="deptChart" width="160" height="160"></canvas>
+              <div class="donut-legend">
+                <div class="dl-item"><div class="dl-dot" style="background:var(--accent)"></div>Marketing & Sales <span class="dl-count">(12)</span></div>
+                <div class="dl-item"><div class="dl-dot" style="background:var(--blue)"></div>Design <span class="dl-count">(5)</span></div>
+                <div class="dl-item"><div class="dl-dot" style="background:var(--orange)"></div>Supply Chain <span class="dl-count">(8)</span></div>
+                <div class="dl-item"><div class="dl-dot" style="background:var(--green)"></div>Production <span class="dl-count">(4)</span></div>
+                <div class="dl-item"><div class="dl-dot" style="background:var(--pink)"></div>Accounts <span class="dl-count">(5)</span></div>
+                <div class="dl-item"><div class="dl-dot" style="background:var(--cyan)"></div>HR & IT <span class="dl-count">(6)</span></div>
+                <div class="dl-item"><div class="dl-dot" style="background:var(--yellow)"></div>Servicing <span class="dl-count">(3)</span></div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="charts-grid">
+          <div class="chart-card">
+            <h3>Skill Coverage</h3>
+            <div class="donut-wrap">
+              <canvas id="skillChart" width="160" height="160"></canvas>
+              <div class="donut-legend">
+                <div class="dl-item"><div class="dl-dot" style="background:var(--green)"></div>Existing Match <span class="dl-count">(17)</span></div>
+                <div class="dl-item"><div class="dl-dot" style="background:var(--yellow)"></div>Partial / Adapt <span class="dl-count">(10)</span></div>
+                <div class="dl-item"><div class="dl-dot" style="background:var(--blue)"></div>Built-in <span class="dl-count">(8)</span></div>
+                <div class="dl-item"><div class="dl-dot" style="background:var(--red)"></div>Custom Build <span class="dl-count">(14)</span></div>
+              </div>
+            </div>
+          </div>
+          <div class="chart-card">
+            <h3>Complexity Distribution</h3>
+            <div class="donut-wrap">
+              <canvas id="complexChart" width="160" height="160"></canvas>
+              <div class="donut-legend">
+                <div class="dl-item"><div class="dl-dot" style="background:var(--green)"></div>Beginner <span class="dl-count">(24)</span></div>
+                <div class="dl-item"><div class="dl-dot" style="background:var(--orange)"></div>Intermediate <span class="dl-count">(19)</span></div>
+                <div class="dl-item"><div class="dl-dot" style="background:var(--red)"></div>Advanced <span class="dl-count">(6)</span></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- DEPARTMENTS PAGE -->
+      <div id="departments" class="page">
+        <div class="page-header">
+          <div class="page-title">By Department</div>
+          <div class="page-desc">49 use cases across 7 departments, color-coded by deployment tier.</div>
+        </div>
+
+        <div class="filter-bar" id="deptFilterBar">
+          <button class="filter-pill active" onclick="filterDept('all', this)">All</button>
+          <button class="filter-pill" onclick="filterDept('t1', this)">T1: Quick Wins</button>
+          <button class="filter-pill" onclick="filterDept('t2', this)">T2: Cowork</button>
+          <button class="filter-pill" onclick="filterDept('t3', this)">T3: ERP</button>
+          <button class="filter-pill" onclick="filterDept('t4', this)">T4: Advanced</button>
+        </div>
+
+        <div class="legend">
+          <div class="legend-item"><div class="legend-dot" style="background:var(--green)"></div>T1: Quick Win</div>
+          <div class="legend-item"><div class="legend-dot" style="background:var(--blue)"></div>T2: Cowork Skill</div>
+          <div class="legend-item"><div class="legend-dot" style="background:var(--orange)"></div>T3: ERP Integration</div>
+          <div class="legend-item"><div class="legend-dot" style="background:var(--purple)"></div>T4: External AI</div>
+        </div>
+
+        <div class="dept-grid" id="deptGrid">
+          <!-- Marketing -->
+          <div class="dept-card">
+            <div class="dept-header"><span class="dept-name">Marketing & Sales</span><span class="dept-count">12 use cases</span></div>
+            <div class="use-case" data-tier="t2"><div class="tier-dot t2"></div><span class="uc-name">Offer Creation with Pricing</span><span class="uc-complexity beginner">Beginner</span></div>
+            <div class="use-case" data-tier="t1"><div class="tier-dot t1"></div><span class="uc-name">Instant Price Generator</span><span class="uc-complexity beginner">Beginner</span></div>
+            <div class="use-case" data-tier="t1"><div class="tier-dot t1"></div><span class="uc-name">Configuration Suggestor</span><span class="uc-complexity intermediate">Intermediate</span></div>
+            <div class="use-case" data-tier="t3"><div class="tier-dot t3"></div><span class="uc-name">Report Writer + CRM Update</span><span class="uc-complexity intermediate">Intermediate</span></div>
+            <div class="use-case" data-tier="t2"><div class="tier-dot t2"></div><span class="uc-name">Presentation Generation</span><span class="uc-complexity beginner">Beginner</span></div>
+            <div class="use-case" data-tier="t1"><div class="tier-dot t1"></div><span class="uc-name">Auto Email Writing</span><span class="uc-complexity beginner">Beginner</span></div>
+            <div class="use-case" data-tier="t2"><div class="tier-dot t2"></div><span class="uc-name">SEO Workflow</span><span class="uc-complexity beginner">Beginner</span></div>
+            <div class="use-case" data-tier="t3"><div class="tier-dot t3"></div><span class="uc-name">Meta & Google Ad Management</span><span class="uc-complexity intermediate">Intermediate</span></div>
+            <div class="use-case" data-tier="t4"><div class="tier-dot t4"></div><span class="uc-name">Image & Video Generation</span><span class="uc-complexity intermediate">Intermediate</span></div>
+            <div class="use-case" data-tier="t3"><div class="tier-dot t3"></div><span class="uc-name">Order Projections from Pipeline</span><span class="uc-complexity intermediate">Intermediate</span></div>
+            <div class="use-case" data-tier="t3"><div class="tier-dot t3"></div><span class="uc-name">Auto Sales Follow-Up Workflow</span><span class="uc-complexity intermediate">Intermediate</span></div>
+            <div class="use-case" data-tier="t3"><div class="tier-dot t3"></div><span class="uc-name">Outbound Enquiry Generation</span><span class="uc-complexity intermediate">Intermediate</span></div>
+          </div>
+          <!-- Design -->
+          <div class="dept-card">
+            <div class="dept-header"><span class="dept-name">Design</span><span class="dept-count">5 use cases</span></div>
+            <div class="use-case" data-tier="t4"><div class="tier-dot t4"></div><span class="uc-name">AutoCAD Design Modification</span><span class="uc-complexity advanced">Advanced</span></div>
+            <div class="use-case" data-tier="t4"><div class="tier-dot t4"></div><span class="uc-name">New Design Acceleration</span><span class="uc-complexity advanced">Advanced</span></div>
+            <div class="use-case" data-tier="t2"><div class="tier-dot t2"></div><span class="uc-name">BOM Generation</span><span class="uc-complexity intermediate">Intermediate</span></div>
+            <div class="use-case" data-tier="t4"><div class="tier-dot t4"></div><span class="uc-name">Site Layout Drawing</span><span class="uc-complexity intermediate">Intermediate</span></div>
+            <div class="use-case" data-tier="t1"><div class="tier-dot t1"></div><span class="uc-name">Email Writer</span><span class="uc-complexity beginner">Beginner</span></div>
+          </div>
+          <!-- Supply Chain -->
+          <div class="dept-card">
+            <div class="dept-header"><span class="dept-name">Supply Chain</span><span class="dept-count">8 use cases</span></div>
+            <div class="use-case" data-tier="t2"><div class="tier-dot t2"></div><span class="uc-name">Vendor Finder</span><span class="uc-complexity beginner">Beginner</span></div>
+            <div class="use-case" data-tier="t2"><div class="tier-dot t2"></div><span class="uc-name">RFQ Generation</span><span class="uc-complexity beginner">Beginner</span></div>
+            <div class="use-case" data-tier="t3"><div class="tier-dot t3"></div><span class="uc-name">PO Creation</span><span class="uc-complexity beginner">Beginner</span></div>
+            <div class="use-case" data-tier="t3"><div class="tier-dot t3"></div><span class="uc-name">Shortage Identification</span><span class="uc-complexity intermediate">Intermediate</span></div>
+            <div class="use-case" data-tier="t2"><div class="tier-dot t2"></div><span class="uc-name">Cost Analysis & Vendor Reports</span><span class="uc-complexity beginner">Beginner</span></div>
+            <div class="use-case" data-tier="t1"><div class="tier-dot t1"></div><span class="uc-name">Email Writer & Follow-Up</span><span class="uc-complexity beginner">Beginner</span></div>
+            <div class="use-case" data-tier="t3"><div class="tier-dot t3"></div><span class="uc-name">Min Reorder Level Alerts</span><span class="uc-complexity intermediate">Intermediate</span></div>
+            <div class="use-case" data-tier="t3"><div class="tier-dot t3"></div><span class="uc-name">Chase Follow-Up Dashboard</span><span class="uc-complexity advanced">Advanced</span></div>
+          </div>
+          <!-- Production -->
+          <div class="dept-card">
+            <div class="dept-header"><span class="dept-name">Production & Maintenance</span><span class="dept-count">4 use cases</span></div>
+            <div class="use-case" data-tier="t4"><div class="tier-dot t4"></div><span class="uc-name">Predictive Maintenance</span><span class="uc-complexity intermediate">Intermediate</span></div>
+            <div class="use-case" data-tier="t1"><div class="tier-dot t1"></div><span class="uc-name">Email Writer</span><span class="uc-complexity beginner">Beginner</span></div>
+            <div class="use-case" data-tier="t2"><div class="tier-dot t2"></div><span class="uc-name">Production Review Presentations</span><span class="uc-complexity beginner">Beginner</span></div>
+            <div class="use-case" data-tier="t3"><div class="tier-dot t3"></div><span class="uc-name">Forward Stock Projections</span><span class="uc-complexity intermediate">Intermediate</span></div>
+          </div>
+          <!-- Accounts -->
+          <div class="dept-card">
+            <div class="dept-header"><span class="dept-name">Accounts</span><span class="dept-count">5 use cases</span></div>
+            <div class="use-case" data-tier="t3"><div class="tier-dot t3"></div><span class="uc-name">Invoice Generation</span><span class="uc-complexity intermediate">Intermediate</span></div>
+            <div class="use-case" data-tier="t3"><div class="tier-dot t3"></div><span class="uc-name">MIS Reports</span><span class="uc-complexity intermediate">Intermediate</span></div>
+            <div class="use-case" data-tier="t1"><div class="tier-dot t1"></div><span class="uc-name">Email Writer</span><span class="uc-complexity beginner">Beginner</span></div>
+            <div class="use-case" data-tier="t2"><div class="tier-dot t2"></div><span class="uc-name">Financial Presentations</span><span class="uc-complexity beginner">Beginner</span></div>
+            <div class="use-case" data-tier="t1"><div class="tier-dot t1"></div><span class="uc-name">AI Excel Assistant</span><span class="uc-complexity beginner">Beginner</span></div>
+          </div>
+          <!-- HR & IT -->
+          <div class="dept-card">
+            <div class="dept-header"><span class="dept-name">HR & IT</span><span class="dept-count">6 use cases</span></div>
+            <div class="use-case" data-tier="t1"><div class="tier-dot t1"></div><span class="uc-name">Job Description Writer</span><span class="uc-complexity beginner">Beginner</span></div>
+            <div class="use-case" data-tier="t3"><div class="tier-dot t3"></div><span class="uc-name">Job Posting to Portals</span><span class="uc-complexity intermediate">Intermediate</span></div>
+            <div class="use-case" data-tier="t2"><div class="tier-dot t2"></div><span class="uc-name">Salary Sheet Maker</span><span class="uc-complexity intermediate">Intermediate</span></div>
+            <div class="use-case" data-tier="t1"><div class="tier-dot t1"></div><span class="uc-name">ERP Coding Assistant</span><span class="uc-complexity intermediate">Intermediate</span></div>
+            <div class="use-case" data-tier="t1"><div class="tier-dot t1"></div><span class="uc-name">Email Writer</span><span class="uc-complexity beginner">Beginner</span></div>
+            <div class="use-case" data-tier="t1"><div class="tier-dot t1"></div><span class="uc-name">KRA/KPI Generator</span><span class="uc-complexity beginner">Beginner</span></div>
+          </div>
+          <!-- Servicing -->
+          <div class="dept-card">
+            <div class="dept-header"><span class="dept-name">Servicing</span><span class="dept-count">3 use cases</span></div>
+            <div class="use-case" data-tier="t2"><div class="tier-dot t2"></div><span class="uc-name">AI Troubleshooting Assistant</span><span class="uc-complexity intermediate">Intermediate</span></div>
+            <div class="use-case" data-tier="t1"><div class="tier-dot t1"></div><span class="uc-name">Service Email Writer</span><span class="uc-complexity beginner">Beginner</span></div>
+            <div class="use-case" data-tier="t4"><div class="tier-dot t4"></div><span class="uc-name">AI Travel Desk</span><span class="uc-complexity intermediate">Intermediate</span></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- SKILLS PAGE -->
+      <div id="skills" class="page">
+        <div class="page-header">
+          <div class="page-title">Skill Mapping</div>
+          <div class="page-desc">Mapping each use case to existing Claude skills, partial matches, and gaps requiring custom development.</div>
+        </div>
+
+        <div class="filter-bar" id="skillFilterBar">
+          <button class="filter-pill active" onclick="filterSkills('all', this)">All</button>
+          <button class="filter-pill" onclick="filterSkills('exists', this)">Match</button>
+          <button class="filter-pill" onclick="filterSkills('partial', this)">Partial</button>
+          <button class="filter-pill" onclick="filterSkills('builtin', this)">Built-in</button>
+          <button class="filter-pill" onclick="filterSkills('custom', this)">Custom Build</button>
+        </div>
+
+        <div class="table-wrap">
+          <table class="skills-table" id="skillsTable">
+            <thead>
+              <tr><th>Dept</th><th>Use Case</th><th>Existing Skill</th><th>Status</th><th>Notes</th></tr>
+            </thead>
+            <tbody>
+              <tr data-status="exists"><td>Mktg</td><td>Offer Creation</td><td>sales:create-an-asset + docx/pdf</td><td><span class="badge exists">Match</span></td><td>Needs pricing DB as knowledge file</td></tr>
+              <tr data-status="custom"><td>Mktg</td><td>Price Generator</td><td>—</td><td><span class="badge custom">Custom</span></td><td>Calculator logic in instructions + spreadsheet</td></tr>
+              <tr data-status="custom"><td>Mktg</td><td>Config Suggestor</td><td>—</td><td><span class="badge custom">Custom</span></td><td>Product recommendation engine skill needed</td></tr>
+              <tr data-status="partial"><td>Mktg</td><td>CRM Report + Update</td><td>sales:pipeline-review</td><td><span class="badge partial">Partial</span></td><td>Needs CRM MCP connector for custom ERP</td></tr>
+              <tr data-status="exists"><td>Mktg</td><td>Presentations</td><td>pptx</td><td><span class="badge exists">Match</span></td><td>Works with company template</td></tr>
+              <tr data-status="exists"><td>Mktg</td><td>Email Writing</td><td>sales:draft-outreach</td><td><span class="badge exists">Match</span></td><td>Customize tone for company voice</td></tr>
+              <tr data-status="exists"><td>Mktg</td><td>SEO Workflow</td><td>marketing:seo-audit</td><td><span class="badge exists">Match</span></td><td>Add domain-specific keywords</td></tr>
+              <tr data-status="partial"><td>Mktg</td><td>Ad Management</td><td>marketing:campaign-plan</td><td><span class="badge partial">Partial</span></td><td>Strategy + copy only, no platform integration</td></tr>
+              <tr data-status="custom"><td>Mktg</td><td>Image & Video</td><td>—</td><td><span class="badge custom">Custom</span></td><td>Requires DALL-E / Midjourney / Runway</td></tr>
+              <tr data-status="partial"><td>Mktg</td><td>Order Projections</td><td>sales:forecast</td><td><span class="badge partial">Partial</span></td><td>Needs CRM data feed</td></tr>
+              <tr data-status="exists"><td>Mktg</td><td>Auto Sales Follow-Up</td><td>sales:pipeline-review + sales:draft-outreach</td><td><span class="badge exists">Match</span></td><td>Needs CRM/Excel MCP connector for auto-tracking</td></tr>
+              <tr data-status="partial"><td>Mktg</td><td>Outbound Enquiry Gen</td><td>sales:account-research + sales:draft-outreach</td><td><span class="badge partial">Partial</span></td><td>Prospect discovery via web search; needs IndiaMart/LinkedIn data</td></tr>
+              <tr data-status="custom"><td>Design</td><td>AutoCAD Modification</td><td>—</td><td><span class="badge custom">Custom</span></td><td>Claude generates scripts, can't run AutoCAD</td></tr>
+              <tr data-status="custom"><td>Design</td><td>New Design</td><td>—</td><td><span class="badge custom">Custom</span></td><td>Needs external CAD AI tools</td></tr>
+              <tr data-status="partial"><td>Design</td><td>BOM Generation</td><td>xlsx</td><td><span class="badge partial">Partial</span></td><td>Custom skill with component library needed</td></tr>
+              <tr data-status="custom"><td>Design</td><td>Site Layout</td><td>—</td><td><span class="badge custom">Custom</span></td><td>Needs AutoCAD / drawing templates</td></tr>
+              <tr data-status="builtin"><td>Design</td><td>Email Writer</td><td>Built-in</td><td><span class="badge builtin">Built-in</span></td><td>Just needs design-context instructions</td></tr>
+              <tr data-status="exists"><td>SC</td><td>Vendor Finder</td><td>operations:vendor-management</td><td><span class="badge exists">Match</span></td><td>+ web search for new vendors</td></tr>
+              <tr data-status="partial"><td>SC</td><td>RFQ Generation</td><td>docx / pdf</td><td><span class="badge partial">Partial</span></td><td>Custom RFQ template needed</td></tr>
+              <tr data-status="partial"><td>SC</td><td>PO Creation</td><td>docx / pdf</td><td><span class="badge partial">Partial</span></td><td>Needs ERP for PO numbering</td></tr>
+              <tr data-status="partial"><td>SC</td><td>Shortage ID</td><td>xlsx</td><td><span class="badge partial">Partial</span></td><td>Needs ERP MCP for inventory data</td></tr>
+              <tr data-status="exists"><td>SC</td><td>Cost Analysis</td><td>operations:vendor-review</td><td><span class="badge exists">Match</span></td><td>Works with uploaded data</td></tr>
+              <tr data-status="builtin"><td>SC</td><td>Email Writer</td><td>Built-in</td><td><span class="badge builtin">Built-in</span></td><td>Simple instructions</td></tr>
+              <tr data-status="custom"><td>SC</td><td>Reorder Alerts</td><td>—</td><td><span class="badge custom">Custom</span></td><td>ERP connector + scheduled task</td></tr>
+              <tr data-status="custom"><td>SC</td><td>Chase Dashboard</td><td>xlsx (partial)</td><td><span class="badge custom">Custom</span></td><td>Complex: ERP + scheduling + multi-user</td></tr>
+              <tr data-status="custom"><td>Prod</td><td>Predictive Maint.</td><td>—</td><td><span class="badge custom">Custom</span></td><td>Start rule-based, evolve to ML</td></tr>
+              <tr data-status="builtin"><td>Prod</td><td>Email Writer</td><td>Built-in</td><td><span class="badge builtin">Built-in</span></td><td>Simple instructions</td></tr>
+              <tr data-status="exists"><td>Prod</td><td>Review Presentations</td><td>pptx</td><td><span class="badge exists">Match</span></td><td>Works with production data input</td></tr>
+              <tr data-status="partial"><td>Prod</td><td>Stock Projections</td><td>xlsx</td><td><span class="badge partial">Partial</span></td><td>Needs ERP + sales pipeline data</td></tr>
+              <tr data-status="partial"><td>Acct</td><td>Invoice Generation</td><td>pdf / docx</td><td><span class="badge partial">Partial</span></td><td>Needs ERP integration</td></tr>
+              <tr data-status="partial"><td>Acct</td><td>MIS Reports</td><td>xlsx</td><td><span class="badge partial">Partial</span></td><td>Needs ERP data feed</td></tr>
+              <tr data-status="builtin"><td>Acct</td><td>Email Writer</td><td>Built-in</td><td><span class="badge builtin">Built-in</span></td><td>Simple instructions</td></tr>
+              <tr data-status="exists"><td>Acct</td><td>Financial Presentations</td><td>pptx</td><td><span class="badge exists">Match</span></td><td>Works with financial data input</td></tr>
+              <tr data-status="exists"><td>Acct</td><td>Excel Assistant</td><td>xlsx</td><td><span class="badge exists">Match</span></td><td>Excellent immediate match</td></tr>
+              <tr data-status="builtin"><td>HR</td><td>JD Writer</td><td>Built-in</td><td><span class="badge builtin">Built-in</span></td><td>Manufacturing context in instructions</td></tr>
+              <tr data-status="custom"><td>HR</td><td>Job Posting</td><td>—</td><td><span class="badge custom">Custom</span></td><td>Needs platform APIs</td></tr>
+              <tr data-status="exists"><td>HR</td><td>Salary Sheet</td><td>xlsx</td><td><span class="badge exists">Match</span></td><td>Custom template with PF/ESI/TDS logic</td></tr>
+              <tr data-status="builtin"><td>IT</td><td>ERP Coding Assist</td><td>Built-in coding</td><td><span class="badge builtin">Built-in</span></td><td>Add ERP schema as knowledge</td></tr>
+              <tr data-status="builtin"><td>HR</td><td>Email Writer</td><td>Built-in</td><td><span class="badge builtin">Built-in</span></td><td>Simple instructions</td></tr>
+              <tr data-status="builtin"><td>HR</td><td>KRA/KPI Generator</td><td>Built-in</td><td><span class="badge builtin">Built-in</span></td><td>Manufacturing KRA templates in instructions</td></tr>
+              <tr data-status="custom"><td>Svc</td><td>Troubleshooting</td><td>—</td><td><span class="badge custom">Custom</span></td><td>Technical manual knowledge base skill</td></tr>
+              <tr data-status="builtin"><td>Svc</td><td>Service Email</td><td>Built-in</td><td><span class="badge builtin">Built-in</span></td><td>Simple instructions</td></tr>
+              <tr data-status="custom"><td>Svc</td><td>AI Travel Desk</td><td>—</td><td><span class="badge custom">Custom</span></td><td>Needs Travel API MCP connector</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- PROJECTS PAGE -->
+      <div id="projects" class="page">
+        <div class="page-header">
+          <div class="page-title">Recommended Projects</div>
+          <div class="page-desc">18 functional Projects grouped by workflow cluster. Each has focused instructions, specific knowledge files, and references the right skills.</div>
+        </div>
+
+        <div class="project-list">
+          <div class="project-item">
+            <div class="proj-top"><span class="proj-dept-badge">Marketing & Sales</span></div>
+            <div class="proj-name">1. Sales Proposals & Pricing</div>
+            <div class="proj-desc">Offer creation, instant pricing, configuration suggestions</div>
+            <div class="proj-meta">
+              <div class="proj-meta-item"><strong>Use Cases:</strong> #1, #2, #3</div>
+              <div class="proj-meta-item"><strong>Knowledge:</strong> Pricing database, product catalog, machine specs</div>
+              <div class="proj-meta-item"><strong>Skills:</strong> sales:create-an-asset, docx, pdf</div>
+              <div class="proj-meta-item"><strong>Tier:</strong> T1-T2</div>
+            </div>
+          </div>
+          <div class="project-item">
+            <div class="proj-top"><span class="proj-dept-badge">Marketing & Sales</span></div>
+            <div class="proj-name">2. Sales Communications</div>
+            <div class="proj-desc">Email drafting, presentation generation, CRM reporting</div>
+            <div class="proj-meta">
+              <div class="proj-meta-item"><strong>Use Cases:</strong> #4, #5, #6</div>
+              <div class="proj-meta-item"><strong>Knowledge:</strong> Brand guide, email templates, past decks</div>
+              <div class="proj-meta-item"><strong>Skills:</strong> sales:draft-outreach, pptx</div>
+              <div class="proj-meta-item"><strong>Tier:</strong> T1-T3</div>
+            </div>
+          </div>
+          <div class="project-item">
+            <div class="proj-top"><span class="proj-dept-badge">Marketing & Sales</span></div>
+            <div class="proj-name">3. Digital Marketing</div>
+            <div class="proj-desc">SEO, ad campaigns, content creation, image/video generation</div>
+            <div class="proj-meta">
+              <div class="proj-meta-item"><strong>Use Cases:</strong> #7, #8, #9</div>
+              <div class="proj-meta-item"><strong>Knowledge:</strong> Brand guidelines, keyword lists, competitor URLs</div>
+              <div class="proj-meta-item"><strong>Skills:</strong> marketing:seo-audit, marketing:campaign-plan</div>
+              <div class="proj-meta-item"><strong>Tier:</strong> T2-T4</div>
+            </div>
+          </div>
+          <div class="project-item">
+            <div class="proj-top"><span class="proj-dept-badge">Marketing & Sales</span></div>
+            <div class="proj-name">4. Sales Forecasting & Pipeline</div>
+            <div class="proj-desc">Order projections, pipeline analysis, production planning feed</div>
+            <div class="proj-meta">
+              <div class="proj-meta-item"><strong>Use Cases:</strong> #10</div>
+              <div class="proj-meta-item"><strong>Knowledge:</strong> Historical win rates, seasonal patterns, pipeline exports</div>
+              <div class="proj-meta-item"><strong>Skills:</strong> sales:forecast, xlsx</div>
+              <div class="proj-meta-item"><strong>Tier:</strong> T3</div>
+            </div>
+          </div>
+          <div class="project-item">
+            <div class="proj-top"><span class="proj-dept-badge">Marketing & Sales</span></div>
+            <div class="proj-name">5. Sales Follow-Up & Outbound</div>
+            <div class="proj-desc">Automated follow-up tracking, outbound prospect discovery, cold outreach</div>
+            <div class="proj-meta">
+              <div class="proj-meta-item"><strong>Use Cases:</strong> #11, #12</div>
+              <div class="proj-meta-item"><strong>Knowledge:</strong> Lead tracker/CRM exports, ICP, product catalog</div>
+              <div class="proj-meta-item"><strong>Skills:</strong> sales:pipeline-review, sales:account-research</div>
+              <div class="proj-meta-item"><strong>Tier:</strong> T3</div>
+            </div>
+          </div>
+          <div class="project-item">
+            <div class="proj-top"><span class="proj-dept-badge">Design</span></div>
+            <div class="proj-name">6. Engineering Design & CAD</div>
+            <div class="proj-desc">AutoCAD scripting, new design concepts, site layouts</div>
+            <div class="proj-meta">
+              <div class="proj-meta-item"><strong>Use Cases:</strong> #1, #2, #4</div>
+              <div class="proj-meta-item"><strong>Knowledge:</strong> Design standards, AutoLISP examples, component databases</div>
+              <div class="proj-meta-item"><strong>Skills:</strong> coding-first-principles (script generation)</div>
+              <div class="proj-meta-item"><strong>Tier:</strong> T4</div>
+            </div>
+          </div>
+          <div class="project-item">
+            <div class="proj-top"><span class="proj-dept-badge">Design</span></div>
+            <div class="proj-name">7. BOM & Design Documentation</div>
+            <div class="proj-desc">BOM generation from orders, design emails, handoff docs</div>
+            <div class="proj-meta">
+              <div class="proj-meta-item"><strong>Use Cases:</strong> #3, #5</div>
+              <div class="proj-meta-item"><strong>Knowledge:</strong> Component library with part numbers/costs</div>
+              <div class="proj-meta-item"><strong>Skills:</strong> xlsx, docx</div>
+              <div class="proj-meta-item"><strong>Tier:</strong> T1-T2</div>
+            </div>
+          </div>
+          <div class="project-item">
+            <div class="proj-top"><span class="proj-dept-badge">Supply Chain</span></div>
+            <div class="proj-name">8. Vendor Management & Procurement Docs</div>
+            <div class="proj-desc">Vendor search, RFQs, POs, cost analysis, vendor performance</div>
+            <div class="proj-meta">
+              <div class="proj-meta-item"><strong>Use Cases:</strong> #1, #2, #3, #5, #6</div>
+              <div class="proj-meta-item"><strong>Knowledge:</strong> Approved vendor list, RFQ/PO templates</div>
+              <div class="proj-meta-item"><strong>Skills:</strong> operations:vendor-management, docx, pdf</div>
+              <div class="proj-meta-item"><strong>Tier:</strong> T2-T3</div>
+            </div>
+          </div>
+          <div class="project-item">
+            <div class="proj-top"><span class="proj-dept-badge">Supply Chain</span></div>
+            <div class="proj-name">9. Inventory & Procurement Tracking</div>
+            <div class="proj-desc">Shortage identification, reorder alerts, Chase Follow-Up Dashboard</div>
+            <div class="proj-meta">
+              <div class="proj-meta-item"><strong>Use Cases:</strong> #4, #7, #8</div>
+              <div class="proj-meta-item"><strong>Knowledge:</strong> Inventory policies, lead times, reorder levels</div>
+              <div class="proj-meta-item"><strong>Skills:</strong> xlsx + custom ERP MCP + scheduled tasks</div>
+              <div class="proj-meta-item"><strong>Tier:</strong> T3 (requires ERP connector)</div>
+            </div>
+          </div>
+          <div class="project-item">
+            <div class="proj-top"><span class="proj-dept-badge">Production & Maintenance</span></div>
+            <div class="proj-name">10. Production Planning & Reporting</div>
+            <div class="proj-desc">Review presentations, stock projections, production emails</div>
+            <div class="proj-meta">
+              <div class="proj-meta-item"><strong>Use Cases:</strong> #2, #3, #4</div>
+              <div class="proj-meta-item"><strong>Knowledge:</strong> Production targets, BOM templates per model</div>
+              <div class="proj-meta-item"><strong>Skills:</strong> pptx, xlsx</div>
+              <div class="proj-meta-item"><strong>Tier:</strong> T1-T3</div>
+            </div>
+          </div>
+          <div class="project-item">
+            <div class="proj-top"><span class="proj-dept-badge">Production & Maintenance</span></div>
+            <div class="proj-name">11. Maintenance Management</div>
+            <div class="proj-desc">Predictive maintenance scheduling, health scoring, alerts</div>
+            <div class="proj-meta">
+              <div class="proj-meta-item"><strong>Use Cases:</strong> #1</div>
+              <div class="proj-meta-item"><strong>Knowledge:</strong> Machine manuals, historical failure data</div>
+              <div class="proj-meta-item"><strong>Skills:</strong> Custom (start rule-based)</div>
+              <div class="proj-meta-item"><strong>Tier:</strong> T4</div>
+            </div>
+          </div>
+          <div class="project-item">
+            <div class="proj-top"><span class="proj-dept-badge">Accounts</span></div>
+            <div class="proj-name">12. Financial Operations</div>
+            <div class="proj-desc">Invoice generation, MIS reports, collections emails</div>
+            <div class="proj-meta">
+              <div class="proj-meta-item"><strong>Use Cases:</strong> #1, #2, #3</div>
+              <div class="proj-meta-item"><strong>Knowledge:</strong> GST rules, HSN/SAC codes, invoice templates</div>
+              <div class="proj-meta-item"><strong>Skills:</strong> pdf, xlsx + ERP MCP</div>
+              <div class="proj-meta-item"><strong>Tier:</strong> T1-T3</div>
+            </div>
+          </div>
+          <div class="project-item">
+            <div class="proj-top"><span class="proj-dept-badge">Accounts</span></div>
+            <div class="proj-name">13. Financial Analysis & Presentations</div>
+            <div class="proj-desc">Financial decks, Excel assistance, board presentations</div>
+            <div class="proj-meta">
+              <div class="proj-meta-item"><strong>Use Cases:</strong> #4, #5</div>
+              <div class="proj-meta-item"><strong>Knowledge:</strong> Financial templates, chart formats</div>
+              <div class="proj-meta-item"><strong>Skills:</strong> pptx, xlsx</div>
+              <div class="proj-meta-item"><strong>Tier:</strong> T1-T2</div>
+            </div>
+          </div>
+          <div class="project-item">
+            <div class="proj-top"><span class="proj-dept-badge">HR & IT</span></div>
+            <div class="proj-name">14. Recruitment & Talent</div>
+            <div class="proj-desc">JD writing, portal postings, interview prep</div>
+            <div class="proj-meta">
+              <div class="proj-meta-item"><strong>Use Cases:</strong> #1, #2</div>
+              <div class="proj-meta-item"><strong>Knowledge:</strong> Role templates, salary benchmarks</div>
+              <div class="proj-meta-item"><strong>Skills:</strong> docx</div>
+              <div class="proj-meta-item"><strong>Tier:</strong> T1-T3</div>
+            </div>
+          </div>
+          <div class="project-item">
+            <div class="proj-top"><span class="proj-dept-badge">HR & IT</span></div>
+            <div class="proj-name">15. Payroll & HR Operations</div>
+            <div class="proj-desc">Salary processing, KRA/KPI creation, HR emails</div>
+            <div class="proj-meta">
+              <div class="proj-meta-item"><strong>Use Cases:</strong> #3, #5, #6</div>
+              <div class="proj-meta-item"><strong>Knowledge:</strong> Salary structures, PF/ESI/TDS rules</div>
+              <div class="proj-meta-item"><strong>Skills:</strong> xlsx</div>
+              <div class="proj-meta-item"><strong>Tier:</strong> T1-T2</div>
+            </div>
+          </div>
+          <div class="project-item">
+            <div class="proj-top"><span class="proj-dept-badge">HR & IT</span></div>
+            <div class="proj-name">16. ERP Development Assistant</div>
+            <div class="proj-desc">Code generation, query writing, API integration</div>
+            <div class="proj-meta">
+              <div class="proj-meta-item"><strong>Use Cases:</strong> #4</div>
+              <div class="proj-meta-item"><strong>Knowledge:</strong> ERP schema, database structure, API docs</div>
+              <div class="proj-meta-item"><strong>Skills:</strong> Built-in coding</div>
+              <div class="proj-meta-item"><strong>Tier:</strong> T1</div>
+            </div>
+          </div>
+          <div class="project-item">
+            <div class="proj-top"><span class="proj-dept-badge">Servicing</span></div>
+            <div class="proj-name">17. Service & Troubleshooting</div>
+            <div class="proj-desc">AI-guided diagnostics, repair instructions, service communications</div>
+            <div class="proj-meta">
+              <div class="proj-meta-item"><strong>Use Cases:</strong> #1, #2</div>
+              <div class="proj-meta-item"><strong>Knowledge:</strong> Technical manuals, service bulletins, parts catalog</div>
+              <div class="proj-meta-item"><strong>Skills:</strong> Custom troubleshooting skill</div>
+              <div class="proj-meta-item"><strong>Tier:</strong> T2</div>
+            </div>
+          </div>
+          <div class="project-item">
+            <div class="proj-top"><span class="proj-dept-badge">Servicing</span></div>
+            <div class="proj-name">18. AI Travel Desk</div>
+            <div class="proj-desc">Engineer travel booking, itinerary generation, expense tracking</div>
+            <div class="proj-meta">
+              <div class="proj-meta-item"><strong>Use Cases:</strong> #3</div>
+              <div class="proj-meta-item"><strong>Knowledge:</strong> Travel policy, preferred vendors, expense templates</div>
+              <div class="proj-meta-item"><strong>Skills:</strong> Custom Travel Desk + Travel API MCP</div>
+              <div class="proj-meta-item"><strong>Tier:</strong> T4</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- GAPS PAGE -->
+      <div id="gaps" class="page">
+        <div class="page-header">
+          <div class="page-title">Gaps & Risks</div>
+          <div class="page-desc">Honest assessment of what the master plan assumes vs. what's currently possible.</div>
+        </div>
+        <div class="gap-progress-bar">
+          <span id="gapProgressLabel">0 / 7 resolved</span>
+          <div class="gap-progress-track"><div class="gap-progress-fill" id="gapProgressFill" style="width:0%"></div></div>
+        </div>
+        <div class="gap-list" id="gapList">
+        </div>
+
+        <div style="margin-top:32px">
+          <div class="section-header"><div class="section-title">10 Custom Skills Required</div></div>
+          <div class="skills-grid">
+            <div class="skill-card"><div class="skill-name">Pricing Calculator</div><div class="skill-tag">Custom</div><div class="skill-desc">Machine configuration to instant price with margin analysis. Needs pricing master spreadsheet.</div></div>
+            <div class="skill-card"><div class="skill-name">Configuration Suggestor</div><div class="skill-tag">Custom</div><div class="skill-desc">Print requirements to optimal machine recommendation. Needs product knowledge base.</div></div>
+            <div class="skill-card"><div class="skill-name">BOM Generator</div><div class="skill-tag">Custom</div><div class="skill-desc">Order spec to structured BOM with part numbers, quantities, costs.</div></div>
+            <div class="skill-card"><div class="skill-name">RFQ Template Builder</div><div class="skill-tag">Custom</div><div class="skill-desc">Component specs to formatted RFQ document for vendors.</div></div>
+            <div class="skill-card"><div class="skill-name">Chase Dashboard Builder</div><div class="skill-tag">Custom</div><div class="skill-desc">BOM to procurement tracking dashboard. Most complex — may need web app.</div></div>
+            <div class="skill-card"><div class="skill-name">Indian Payroll Processor</div><div class="skill-tag">Custom</div><div class="skill-desc">Attendance + salary to pay slips with PF, ESI, TDS, NEFT file.</div></div>
+            <div class="skill-card"><div class="skill-name">Troubleshooting Assistant</div><div class="skill-tag">Custom</div><div class="skill-desc">Symptoms to ranked root causes + step-by-step diagnostics.</div></div>
+            <div class="skill-card"><div class="skill-name">Reorder Alert System</div><div class="skill-tag">Custom</div><div class="skill-desc">Inventory monitoring with threshold alerts. Needs ERP + scheduled tasks.</div></div>
+            <div class="skill-card"><div class="skill-name">Outbound Enquiry Pipeline</div><div class="skill-tag">V2</div><div class="skill-desc">Prospect discovery from IndiaMart/trade directories to qualified leads.</div></div>
+            <div class="skill-card"><div class="skill-name">Travel Desk Coordinator</div><div class="skill-tag">V2</div><div class="skill-desc">Service engineer travel booking, itinerary, expense reports.</div></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- KANBAN PAGE -->
+      <div id="kanban" class="page">
+        <div class="page-header">
+          <div class="page-title">Roadmap Board</div>
+          <div class="page-desc">Drag epics between columns to track rollout progress. Click to expand sub-tasks and check off items as completed.</div>
+        </div>
+
+        <div class="kanban-legend">
+          <span class="kanban-legend-label">Tier:</span>
+          <span class="kanban-legend-item"><span class="kanban-legend-dot" style="background:var(--green)"></span> T1</span>
+          <span class="kanban-legend-item"><span class="kanban-legend-dot" style="background:var(--blue)"></span> T2</span>
+          <span class="kanban-legend-item"><span class="kanban-legend-dot" style="background:var(--orange)"></span> T3</span>
+          <span class="kanban-legend-item"><span class="kanban-legend-dot" style="background:var(--purple)"></span> T4</span>
+        </div>
+
+        <div class="filter-bar" id="kanbanFilterBar">
+          <button class="filter-pill active" onclick="filterKanban('all', this)">All Tiers</button>
+          <button class="filter-pill" onclick="filterKanban('t1', this)">T1</button>
+          <button class="filter-pill" onclick="filterKanban('t2', this)">T2</button>
+          <button class="filter-pill" onclick="filterKanban('t3', this)">T3</button>
+          <button class="filter-pill" onclick="filterKanban('t4', this)">T4</button>
+        </div>
+
+        <div class="kanban-board" id="kanbanBoard">
+          <div class="kanban-col col-backlog" data-col="backlog">
+            <div class="kanban-col-header">
+              <span class="kanban-col-title">Backlog</span>
+              <span class="kanban-col-count" data-count></span>
+            </div>
+            <div class="kanban-cards" data-drop></div>
+          </div>
+          <div class="kanban-col col-progress" data-col="progress">
+            <div class="kanban-col-header">
+              <span class="kanban-col-title">In Progress</span>
+              <span class="kanban-col-count" data-count></span>
+            </div>
+            <div class="kanban-cards" data-drop></div>
+          </div>
+          <div class="kanban-col col-blocked" data-col="blocked">
+            <div class="kanban-col-header">
+              <span class="kanban-col-title">Blocked</span>
+              <span class="kanban-col-count" data-count></span>
+            </div>
+            <div class="kanban-cards" data-drop></div>
+          </div>
+          <div class="kanban-col col-done" data-col="done">
+            <div class="kanban-col-header">
+              <span class="kanban-col-title">Done</span>
+              <span class="kanban-col-count" data-count></span>
+            </div>
+            <div class="kanban-cards" data-drop></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- SKILL CREATOR -->
+      <div id="skillcreator" class="page">
+        <div class="page-header">
+          <div class="page-title">Skill Creator</div>
+          <div class="page-desc">Build Claude-compatible skill definitions in YAML format. Pre-populated from the 10 custom skills identified in this rollout.</div>
+        </div>
+        <div class="sc-layout" style="background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius);">
+          <div class="sc-list">
+            <div class="sc-list-header">
+              <h4>Skills</h4>
+              <button class="sc-btn sc-btn-sm" onclick="scAddSkill()">+ New</button>
+            </div>
+            <div class="sc-list-items" id="scListItems"></div>
+            <div class="sc-actions">
+              <button class="sc-btn" style="flex:1" onclick="scDownloadAll()">Download All</button>
+            </div>
+          </div>
+          <div class="sc-editor" id="scEditor">
+            <div class="sc-empty">Select a skill from the list or create a new one</div>
+          </div>
+          <div class="sc-preview">
+            <div class="sc-preview-header">
+              <h4>YAML Preview</h4>
+              <button class="sc-btn sc-btn-sm" onclick="scCopyYaml()">Copy</button>
+            </div>
+            <pre id="scYamlPreview">Select a skill to see its YAML output</pre>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<script>
+// ====== NAVIGATION ======
+let currentPage = 'overview';
+
+function navigate(id) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+  event.currentTarget.classList.add('active');
+  currentPage = id;
+
+  const names = { overview:'Overview', departments:'Departments', skills:'Skill Mapping', projects:'Projects', kanban:'Roadmap Board', gaps:'Gaps & Risks', skillcreator:'Skill Creator' };
+  document.getElementById('breadcrumb').textContent = names[id] || id;
+
+  // Clear search when navigating
+  document.getElementById('searchInput').value = '';
+  document.getElementById('searchResults').classList.remove('visible');
+}
+
+// ====== SEARCH ======
+const SEARCH_DATA = [];
+document.querySelectorAll('.use-case .uc-name').forEach(el => {
+  const dept = el.closest('.dept-card')?.querySelector('.dept-name')?.textContent || '';
+  SEARCH_DATA.push({ name: el.textContent, type: 'Use Case', dept, page: 'departments' });
+});
+document.querySelectorAll('.skills-table tbody tr').forEach(tr => {
+  const cells = tr.querySelectorAll('td');
+  if (cells.length >= 2) SEARCH_DATA.push({ name: cells[1].textContent, type: 'Skill', dept: cells[0].textContent, page: 'skills' });
+});
+document.querySelectorAll('.proj-name').forEach(el => {
+  SEARCH_DATA.push({ name: el.textContent, type: 'Project', dept: '', page: 'projects' });
+});
+
+function handleSearch(q) {
+  const results = document.getElementById('searchResults');
+  const list = document.getElementById('searchList');
+  const count = document.getElementById('searchCount');
+
+  if (!q.trim()) { results.classList.remove('visible'); return; }
+
+  const query = q.toLowerCase();
+  const matches = SEARCH_DATA.filter(d => d.name.toLowerCase().includes(query) || d.dept.toLowerCase().includes(query));
+
+  if (matches.length === 0) {
+    results.classList.add('visible');
+    count.textContent = 'No results found';
+    list.innerHTML = '';
+    return;
+  }
+
+  results.classList.add('visible');
+  count.textContent = `${matches.length} result${matches.length !== 1 ? 's' : ''}`;
+  list.innerHTML = matches.slice(0, 10).map(m =>
+    `<div class="search-result" onclick="goToResult('${m.page}')">
+      <div class="tier-dot ${m.type === 'Use Case' ? 't2' : m.type === 'Skill' ? 't1' : 't3'}"></div>
+      <span class="sr-name">${m.name}</span>
+      <span class="sr-meta">${m.type}${m.dept ? ' · ' + m.dept : ''}</span>
+    </div>`
+  ).join('');
+}
+
+function goToResult(page) {
+  const navItem = document.querySelector(`.nav-item[onclick="navigate('${page}')"]`);
+  if (navItem) navItem.click();
+}
+
+// Keyboard shortcut: / to focus search
+document.addEventListener('keydown', e => {
+  if (e.key === '/' && document.activeElement.tagName !== 'INPUT') {
+    e.preventDefault();
+    document.getElementById('searchInput').focus();
+  }
+  if (e.key === 'Escape') {
+    document.getElementById('searchInput').blur();
+    document.getElementById('searchInput').value = '';
+    document.getElementById('searchResults').classList.remove('visible');
+  }
+});
+
+// ====== FILTERS ======
+function filterDept(tier, btn) {
+  document.querySelectorAll('#deptFilterBar .filter-pill').forEach(p => p.classList.remove('active'));
+  btn.classList.add('active');
+  document.querySelectorAll('#deptGrid .use-case').forEach(uc => {
+    uc.style.display = (tier === 'all' || uc.dataset.tier === tier) ? '' : 'none';
+  });
+}
+
+function filterSkills(status, btn) {
+  document.querySelectorAll('#skillFilterBar .filter-pill').forEach(p => p.classList.remove('active'));
+  btn.classList.add('active');
+  document.querySelectorAll('#skillsTable tbody tr').forEach(tr => {
+    tr.style.display = (status === 'all' || tr.dataset.status === status) ? '' : 'none';
+  });
+}
+
+let kanbanFilter = 'all';
+function filterKanban(tier, btn) {
+  document.querySelectorAll('#kanbanFilterBar .filter-pill').forEach(p => p.classList.remove('active'));
+  btn.classList.add('active');
+  kanbanFilter = tier;
+  renderKanban();
+}
+
+// ====== DONUT CHARTS ======
+function drawDonut(canvasId, data, colors) {
+  const canvas = document.getElementById(canvasId);
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+  const dpr = window.devicePixelRatio || 1;
+  const size = 160;
+  canvas.width = size * dpr;
+  canvas.height = size * dpr;
+  canvas.style.width = size + 'px';
+  canvas.style.height = size + 'px';
+  ctx.scale(dpr, dpr);
+
+  const cx = size/2, cy = size/2, outerR = 70, innerR = 46;
+  const total = data.reduce((a, b) => a + b, 0);
+  let startAngle = -Math.PI / 2;
+
+  // Gap between segments
+  const gap = 0.03;
+
+  data.forEach((val, i) => {
+    const sliceAngle = (val / total) * 2 * Math.PI;
+    ctx.beginPath();
+    ctx.arc(cx, cy, outerR, startAngle + gap, startAngle + sliceAngle - gap);
+    ctx.arc(cx, cy, innerR, startAngle + sliceAngle - gap, startAngle + gap, true);
+    ctx.closePath();
+    ctx.fillStyle = colors[i];
+    ctx.fill();
+    startAngle += sliceAngle;
+  });
+
+  ctx.fillStyle = '#ededed';
+  ctx.font = 'bold 22px Inter, sans-serif';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText(total, cx, cy - 6);
+  ctx.fillStyle = '#666';
+  ctx.font = '500 10px Inter, sans-serif';
+  ctx.fillText('TOTAL', cx, cy + 10);
+}
+
+drawDonut('tierChart', [14, 14, 14, 7], ['#22c55e', '#3b82f6', '#f97316', '#a855f7']);
+drawDonut('deptChart', [12, 5, 8, 4, 5, 6, 3], ['#0070f3', '#3b82f6', '#f97316', '#22c55e', '#f43f5e', '#06b6d4', '#eab308']);
+drawDonut('skillChart', [17, 10, 8, 14], ['#22c55e', '#eab308', '#3b82f6', '#ef4444']);
+drawDonut('complexChart', [24, 19, 6], ['#22c55e', '#f97316', '#ef4444']);
+
+// ====== KANBAN BOARD ======
+const EPICS = [
+  { id:'e1', name:'Project Setup & Enterprise Config', dept:'Infrastructure', tier:'t1', col:'progress',
+    items:['Provision Claude Enterprise accounts for all departments','Create 18 functional Projects with instructions','Upload knowledge files per project','Set up Cowork desktop for power users','Draft project instruction templates'] },
+  { id:'e2', name:'T1: Email Writers (All Depts)', dept:'All Departments', tier:'t1', col:'backlog',
+    items:['Configure Marketing email project','Configure Design email templates','Configure Supply Chain email context','Configure Production email workflows','Configure Accounts email templates','Configure HR email context','Configure Servicing email templates','Test outputs with department leads'] },
+  { id:'e3', name:'T1: Pricing & Configuration', dept:'Marketing & Sales', tier:'t1', col:'backlog',
+    items:['Upload pricing master spreadsheet','Write Pricing Calculator skill instructions','Write Configuration Suggestor skill instructions','Upload product knowledge base','Test with 10 real customer scenarios'] },
+  { id:'e4', name:'T1: Excel & Finance Tools', dept:'Accounts / HR', tier:'t1', col:'backlog',
+    items:['Deploy Excel AI Assistant for Accounts','Upload financial KPI templates','Deploy KRA/KPI Generator for HR','Configure JD Writer project','Test with department leads'] },
+  { id:'e5', name:'T1: ERP Coding Assistant', dept:'HR & IT', tier:'t1', col:'backlog',
+    items:['Upload ERP schema documentation','Upload existing code samples','Upload API documentation','Configure coding project instructions','Test with IT team on real queries'] },
+  { id:'e6', name:'T2: Presentation Skills Rollout', dept:'Mktg / Prod / Acct', tier:'t2', col:'backlog',
+    items:['Install pptx skill for power users','Create company slide templates','Configure Sales Presentation project','Configure Production Review project','Configure Financial Presentations project','Train department leads on Cowork'] },
+  { id:'e7', name:'T2: Document Generation Skills', dept:'Supply Chain / Design', tier:'t2', col:'backlog',
+    items:['Build RFQ Template Builder skill','Build BOM Generator skill','Upload component library for BOM','Upload vendor list for RFQs','Configure Vendor Management project','Test outputs against real orders'] },
+  { id:'e8', name:'T2: SEO & Digital Marketing', dept:'Marketing', tier:'t2', col:'backlog',
+    items:['Configure SEO Workflow with domain keywords','Deploy marketing:seo-audit skill','Set up campaign planning project','Upload competitor keyword data','Test with marketing team'] },
+  { id:'e9', name:'T2: Troubleshooting Assistant', dept:'Servicing', tier:'t2', col:'backlog',
+    items:['Collect and digitize technical manuals','Build Troubleshooting Assistant skill','Upload service bulletins and past issues','Upload parts catalog','Test with 20 real service scenarios'] },
+  { id:'e10', name:'T2: Indian Payroll Processor', dept:'HR', tier:'t2', col:'backlog',
+    items:['Build Indian Payroll Processor skill','Configure PF/ESI/TDS statutory rates','Upload salary structures','Test with sample attendance data','Validate NEFT file output format'] },
+  { id:'e11', name:'T3: Custom ERP MCP Connector', dept:'IT (Infrastructure)', tier:'t3', col:'blocked',
+    items:['Document ERP API endpoints','Design MCP server architecture','Build read-only MCP connector (Phase 1)','Add write capabilities (Phase 2)','Security audit and access controls','Deploy and test with pilot use case','Roll out to all T3 projects'] },
+  { id:'e12', name:'T3: Sales Pipeline & Forecasting', dept:'Marketing & Sales', tier:'t3', col:'backlog',
+    items:['Connect CRM data via ERP MCP','Configure Report Writer + CRM Update','Configure Order Projections project','Deploy sales:forecast with real data','Test pipeline review accuracy'] },
+  { id:'e13', name:'T3: Sales Follow-Up & Outbound (V2)', dept:'Marketing & Sales', tier:'t3', col:'backlog',
+    items:['Build CRM-triggered follow-up workflow','Build Outbound Enquiry Pipeline skill','Research IndiaMart/LinkedIn data access','Configure lead qualification criteria','Test with 50 real prospects','Deploy personalized outreach sequences'] },
+  { id:'e14', name:'T3: Supply Chain ERP Workflows', dept:'Supply Chain', tier:'t3', col:'backlog',
+    items:['Connect inventory data via ERP MCP','Deploy PO Creation with auto-numbering','Deploy Shortage Identification workflow','Build Reorder Alert System skill','Configure scheduled task for daily alerts','Build Chase Follow-Up Dashboard'] },
+  { id:'e15', name:'T3: Financial ERP Integration', dept:'Accounts', tier:'t3', col:'backlog',
+    items:['Connect ERP financial data via MCP','Deploy Invoice Generation','Deploy MIS Reports with live data','Test GST/HSN code accuracy','Validate against manual invoices'] },
+  { id:'e16', name:'T3: Ad Platform & Job Portals', dept:'Marketing / HR', tier:'t3', col:'backlog',
+    items:['Research Meta/Google Ads API access','Build ad strategy + copy workflow','Research job portal automation','Deploy browser automation for postings','Test and refine'] },
+  { id:'e17', name:'T4: AutoCAD & Design AI', dept:'Design', tier:'t4', col:'backlog',
+    items:['Build AutoLISP script generation templates','Test with real design tasks','Evaluate CAD AI tools (Zoo, Fusion)','Deploy human-in-the-loop workflow','Train designers on script review'] },
+  { id:'e18', name:'T4: Image & Video Generation', dept:'Marketing', tier:'t4', col:'backlog',
+    items:['Evaluate DALL-E/Midjourney','Evaluate Runway for video','Build prompt templates for product marketing','Integrate into marketing workflow','Budget for subscriptions'] },
+  { id:'e19', name:'T4: Predictive Maintenance', dept:'Production', tier:'t4', col:'backlog',
+    items:['Audit machine monitoring capabilities','Design rule-based scheduling','Build maintenance prediction skill','Plan IoT sensor integration roadmap','Deploy for top 5 critical machines'] },
+  { id:'e20', name:'T4: AI Travel Desk (V2)', dept:'Servicing', tier:'t4', col:'backlog',
+    items:['Research corporate travel APIs','Build Travel Desk Coordinator skill','Start with itinerary + expense templates','Build Travel API MCP connector','Deploy full booking automation','Integrate expense report generation'] },
+];
+
+function renderKanban() {
+  const cols = { backlog:[], progress:[], blocked:[], done:[] };
+  const filtered = kanbanFilter === 'all' ? EPICS : EPICS.filter(e => e.tier === kanbanFilter);
+  filtered.forEach(e => cols[e.col]?.push(e));
+
+  Object.keys(cols).forEach(colKey => {
+    const colEl = document.querySelector(`[data-col="${colKey}"] [data-drop]`);
+    const countEl = document.querySelector(`[data-col="${colKey}"] [data-count]`);
+    if (!colEl) return;
+    colEl.innerHTML = '';
+    countEl.textContent = cols[colKey].length;
+
+    cols[colKey].forEach(epic => {
+      const checked = epic.items.filter((_, i) => epic.checked && epic.checked[i]).length;
+      const total = epic.items.length;
+      const pct = total > 0 ? Math.round((checked / total) * 100) : 0;
+
+      const card = document.createElement('div');
+      card.className = 'epic-card';
+      card.draggable = true;
+      card.dataset.id = epic.id;
+
+      const itemsHtml = epic.items.map((item, i) => {
+        const isChecked = epic.checked && epic.checked[i];
+        return `<li class="${isChecked ? 'checked-item' : ''}"><span class="item-check ${isChecked ? 'checked' : ''}" data-epic="${epic.id}" data-idx="${i}">${isChecked ? '&#10003;' : ''}</span>${item}</li>`;
+      }).join('');
+
+      card.innerHTML = `
+        <div class="epic-tier ${epic.tier}">${epic.tier.toUpperCase()} &middot; ${epic.dept}</div>
+        <div class="epic-name">${epic.name}</div>
+        <div class="epic-dept">${checked}/${total} tasks</div>
+        <ul class="epic-items">${itemsHtml}</ul>
+        <div class="epic-toggle" onclick="toggleEpic(this)">Show ${total} tasks</div>
+        <div class="epic-progress"><div class="epic-progress-fill" style="width:${pct}%"></div></div>
+      `;
+
+      card.addEventListener('dragstart', e => { e.dataTransfer.setData('text/plain', epic.id); card.classList.add('dragging'); });
+      card.addEventListener('dragend', () => card.classList.remove('dragging'));
+
+      colEl.appendChild(card);
+    });
+  });
+
+  updateProgress();
+}
+
+function toggleEpic(el) {
+  const card = el.closest('.epic-card');
+  card.classList.toggle('expanded');
+  const total = card.querySelectorAll('.epic-items li').length;
+  el.textContent = card.classList.contains('expanded') ? 'Hide tasks' : `Show ${total} tasks`;
+}
+
+function updateProgress() {
+  let totalChecked = 0, totalItems = 0;
+  let tierChecked = { t1:0, t2:0, t3:0, t4:0 };
+  let tierTotal = { t1:0, t2:0, t3:0, t4:0 };
+
+  EPICS.forEach(e => {
+    const t = e.items.length;
+    const c = e.checked ? e.checked.filter(Boolean).length : 0;
+    totalItems += t;
+    totalChecked += c;
+    tierTotal[e.tier] += t;
+    tierChecked[e.tier] += c;
+  });
+
+  const pct = totalItems > 0 ? Math.round((totalChecked / totalItems) * 100) : 0;
+  const pctEl = document.getElementById('overallPct');
+  if (pctEl) pctEl.textContent = pct + '%';
+
+  ['T1','T2','T3','T4'].forEach((t, i) => {
+    const key = t.toLowerCase();
+    const w = totalItems > 0 ? (tierChecked[key] / totalItems) * 100 : 0;
+    const el = document.getElementById('progress' + t);
+    if (el) el.style.width = w + '%';
+  });
+}
+
+// Drag and drop + checkbox handlers
+document.addEventListener('DOMContentLoaded', () => {
+  document.querySelectorAll('[data-drop]').forEach(zone => {
+    zone.addEventListener('dragover', e => { e.preventDefault(); zone.closest('.kanban-col').classList.add('drag-over'); });
+    zone.addEventListener('dragleave', () => zone.closest('.kanban-col').classList.remove('drag-over'));
+    zone.addEventListener('drop', e => {
+      e.preventDefault();
+      zone.closest('.kanban-col').classList.remove('drag-over');
+      const epicId = e.dataTransfer.getData('text/plain');
+      const newCol = zone.closest('.kanban-col').dataset.col;
+      const epic = EPICS.find(ep => ep.id === epicId);
+      if (epic) { epic.col = newCol; saveState(); renderKanban(); }
+    });
+  });
+
+  document.getElementById('kanbanBoard').addEventListener('click', e => {
+    const check = e.target.closest('.item-check');
+    if (!check) return;
+    e.stopPropagation();
+    const epicId = check.dataset.epic;
+    const idx = parseInt(check.dataset.idx);
+    const epic = EPICS.find(ep => ep.id === epicId);
+    if (!epic.checked) epic.checked = new Array(epic.items.length).fill(false);
+    epic.checked[idx] = !epic.checked[idx];
+    saveState();
+    renderKanban();
+  });
+
+  loadState();
+  renderKanban();
+});
+
+function saveState() {
+  const state = EPICS.map(e => ({ id:e.id, col:e.col, checked:e.checked || [] }));
+  try { localStorage.setItem('kanban_state_v2', JSON.stringify(state)); } catch(e) {}
+}
+
+function loadState() {
+  try {
+    const saved = JSON.parse(localStorage.getItem('kanban_state_v2'));
+    if (saved) {
+      saved.forEach(s => {
+        const epic = EPICS.find(e => e.id === s.id);
+        if (epic) { epic.col = s.col; epic.checked = s.checked; }
+      });
+    }
+  } catch(e) {}
+}
+
+// ====== SKILL CREATOR ======
+const SC_CATEGORIES = ['sales','marketing','operations','finance','hr','engineering','servicing','custom'];
+const SC_SEEDS = [
+  { name:'Pricing Calculator', slug:'pricing-calculator', description:'Machine configuration to instant price with margin analysis. Needs pricing master spreadsheet.', department:'Marketing & Sales', tier:'t1', category:'sales' },
+  { name:'Configuration Suggestor', slug:'configuration-suggestor', description:'Print requirements to optimal machine recommendation. Needs product knowledge base.', department:'Marketing & Sales', tier:'t1', category:'sales' },
+  { name:'BOM Generator', slug:'bom-generator', description:'Order spec to structured BOM with part numbers, quantities, costs.', department:'Design', tier:'t2', category:'engineering' },
+  { name:'RFQ Template Builder', slug:'rfq-template-builder', description:'Component specs to formatted RFQ document for vendors.', department:'Supply Chain', tier:'t2', category:'operations' },
+  { name:'Chase Dashboard Builder', slug:'chase-dashboard-builder', description:'BOM to procurement tracking dashboard. Most complex — may need web app.', department:'Supply Chain', tier:'t3', category:'operations' },
+  { name:'Indian Payroll Processor', slug:'indian-payroll-processor', description:'Attendance + salary to pay slips with PF, ESI, TDS, NEFT file.', department:'HR & IT', tier:'t2', category:'hr' },
+  { name:'Troubleshooting Assistant', slug:'troubleshooting-assistant', description:'Symptoms to ranked root causes + step-by-step diagnostics.', department:'Servicing', tier:'t2', category:'servicing' },
+  { name:'Reorder Alert System', slug:'reorder-alert-system', description:'Inventory monitoring with threshold alerts. Needs ERP + scheduled tasks.', department:'Supply Chain', tier:'t3', category:'operations' },
+  { name:'Outbound Enquiry Pipeline', slug:'outbound-enquiry-pipeline', description:'Prospect discovery from IndiaMart/trade directories to qualified leads.', department:'Marketing & Sales', tier:'t3', category:'sales' },
+  { name:'Travel Desk Coordinator', slug:'travel-desk-coordinator', description:'Service engineer travel booking, itinerary, expense reports.', department:'Servicing', tier:'t4', category:'servicing' }
+];
+
+let scSkills = SC_SEEDS.map(s => ({
+  ...s,
+  instructions: '',
+  inputFields: [],
+  outputFormat: '',
+  examples: [],
+  knowledgeFiles: []
+}));
+let scActiveIdx = null;
+
+try {
+  const saved = JSON.parse(localStorage.getItem('sc_skills_v2'));
+  if (saved && saved.length) scSkills = saved;
+} catch(e) {}
+
+function scSave() {
+  try { localStorage.setItem('sc_skills_v2', JSON.stringify(scSkills)); } catch(e) {}
+}
+
+function scRenderList() {
+  const el = document.getElementById('scListItems');
+  if (!el) return;
+  el.innerHTML = scSkills.map((s, i) =>
+    '<div class="sc-list-item' + (scActiveIdx === i ? ' sc-active' : '') + '" onclick="scSelect(' + i + ')">' +
+    '<div style="font-weight:500">' + (s.name || 'Untitled') + '</div>' +
+    '<div class="sc-item-sub">' + s.tier.toUpperCase() + ' &middot; ' + s.category + '</div></div>'
+  ).join('');
+}
+
+function scSelect(idx) {
+  scActiveIdx = idx;
+  scRenderList();
+  scRenderEditor();
+  scRenderYaml();
+}
+
+function scAddSkill() {
+  scSkills.push({ name:'New Skill', slug:'new-skill', description:'', department:'', tier:'t2', category:'custom', instructions:'', inputFields:[], outputFormat:'', examples:[], knowledgeFiles:[] });
+  scSave();
+  scSelect(scSkills.length - 1);
+}
+
+function scDeleteSkill(idx) {
+  if (idx < 0 || idx >= scSkills.length) return;
+  if (!confirm('Delete "' + (scSkills[idx].name || 'Untitled') + '"?')) return;
+  scSkills.splice(idx, 1);
+  scSave();
+  if (scSkills.length === 0) {
+    scActiveIdx = null;
+  } else if (scActiveIdx === idx) {
+    scActiveIdx = Math.min(idx, scSkills.length - 1);
+  } else if (scActiveIdx > idx) {
+    scActiveIdx--;
+  }
+  scRenderList();
+  scRenderEditor();
+  scRenderYaml();
+}
+
+function scUpdateField(field, value) {
+  if (scActiveIdx === null) return;
+  scSkills[scActiveIdx][field] = value;
+  if (field === 'name') scSkills[scActiveIdx].slug = value.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+  scSave();
+  scRenderYaml();
+  if (field === 'name' || field === 'category' || field === 'tier') scRenderList();
+}
+
+function scRenderEditor() {
+  const el = document.getElementById('scEditor');
+  if (!el || scActiveIdx === null) { el.innerHTML = '<div class="sc-empty">Select a skill</div>'; return; }
+  const s = scSkills[scActiveIdx];
+
+  const fieldsHtml = s.inputFields.map((f, i) =>
+    '<div class="sc-field-row">' +
+    '<input class="sc-input" style="width:100px" value="' + (f.name||'') + '" placeholder="field_name" oninput="scUpdateInputField(' + i + ',\'name\',this.value)">' +
+    '<select class="sc-select" onchange="scUpdateInputField(' + i + ',\'type\',this.value)">' +
+    ['string','number','boolean','array','object'].map(t => '<option' + (f.type===t?' selected':'') + '>' + t + '</option>').join('') +
+    '</select>' +
+    '<input class="sc-input" value="' + (f.description||'').replace(/"/g,'&quot;') + '" placeholder="Description" oninput="scUpdateInputField(' + i + ',\'description\',this.value)">' +
+    '<span class="sc-remove" onclick="scRemoveInputField(' + i + ')">&#215;</span>' +
+    '</div>'
+  ).join('');
+
+  const examplesHtml = s.examples.map((ex, i) =>
+    '<div class="sc-example-card">' +
+    '<div style="display:flex;justify-content:space-between;margin-bottom:6px"><span class="sc-label">Example ' + (i+1) + '</span><span class="sc-remove" onclick="scRemoveExample(' + i + ')">Remove</span></div>' +
+    '<textarea class="sc-textarea" style="min-height:40px;margin-bottom:4px" placeholder="Input..." oninput="scUpdateExample(' + i + ',\'input\',this.value)">' + (ex.input||'') + '</textarea>' +
+    '<textarea class="sc-textarea" style="min-height:40px" placeholder="Output..." oninput="scUpdateExample(' + i + ',\'output\',this.value)">' + (ex.output||'') + '</textarea>' +
+    '</div>'
+  ).join('');
+
+  const kfHtml = s.knowledgeFiles.map((f, i) =>
+    '<div class="sc-field-row">' +
+    '<input class="sc-input" value="' + (f||'').replace(/"/g,'&quot;') + '" placeholder="e.g., pricing_master.xlsx" oninput="scUpdateKF(' + i + ',this.value)">' +
+    '<span class="sc-remove" onclick="scRemoveKF(' + i + ')">&#215;</span></div>'
+  ).join('');
+
+  el.innerHTML =
+    '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">' +
+    '<h3 style="font-size:16px;font-weight:600;color:var(--text-primary)">' + (s.name || 'Untitled') + '</h3>' +
+    '<div style="display:flex;gap:8px"><button class="sc-btn" style="background:#dc2626;color:white;border-color:#dc2626" onclick="scDeleteSkill(' + scActiveIdx + ')">Delete</button>' +
+    '<button class="sc-btn sc-btn-primary" onclick="scDownloadOne()">Download .yaml</button></div></div>' +
+
+    '<div class="sc-section"><h5>Basic Info</h5>' +
+    '<div class="sc-row"><div style="flex:1"><span class="sc-label">Name</span><input class="sc-input" value="' + (s.name||'').replace(/"/g,'&quot;') + '" oninput="scUpdateField(\'name\',this.value)"></div>' +
+    '<div style="flex:1"><span class="sc-label">Slug</span><input class="sc-input" value="' + s.slug + '" readonly></div></div>' +
+    '<div class="sc-row">' +
+    '<div style="flex:1"><span class="sc-label">Category</span><select class="sc-select" style="width:100%" onchange="scUpdateField(\'category\',this.value)">' + SC_CATEGORIES.map(c => '<option' + (s.category===c?' selected':'') + '>' + c + '</option>').join('') + '</select></div>' +
+    '<div style="flex:1"><span class="sc-label">Department</span><input class="sc-input" value="' + (s.department||'').replace(/"/g,'&quot;') + '" oninput="scUpdateField(\'department\',this.value)"></div>' +
+    '<div style="flex:1"><span class="sc-label">Tier</span><select class="sc-select" style="width:100%" onchange="scUpdateField(\'tier\',this.value)">' +
+    '<option value="t1"' + (s.tier==='t1'?' selected':'') + '>T1</option><option value="t2"' + (s.tier==='t2'?' selected':'') + '>T2</option><option value="t3"' + (s.tier==='t3'?' selected':'') + '>T3</option><option value="t4"' + (s.tier==='t4'?' selected':'') + '>T4</option></select></div></div>' +
+    '<span class="sc-label">Description</span><input class="sc-input" value="' + (s.description||'').replace(/"/g,'&quot;') + '" placeholder="One-line description" oninput="scUpdateField(\'description\',this.value)"></div>' +
+
+    '<div class="sc-section"><h5>Instructions</h5>' +
+    '<textarea class="sc-textarea" style="min-height:120px" placeholder="Detailed instructions for Claude..." oninput="scUpdateField(\'instructions\',this.value)">' + (s.instructions||'') + '</textarea></div>' +
+
+    '<div class="sc-section"><h5>Input Fields <button class="sc-btn sc-btn-sm" style="margin-left:8px" onclick="scAddInputField()">+ Add</button></h5>' +
+    (fieldsHtml || '<div style="font-size:11px;color:var(--text-quaternary)">No input fields defined</div>') + '</div>' +
+
+    '<div class="sc-section"><h5>Output Format</h5>' +
+    '<textarea class="sc-textarea" style="min-height:60px" placeholder="Describe expected output format..." oninput="scUpdateField(\'outputFormat\',this.value)">' + (s.outputFormat||'') + '</textarea></div>' +
+
+    '<div class="sc-section"><h5>Knowledge Files <button class="sc-btn sc-btn-sm" style="margin-left:8px" onclick="scAddKF()">+ Add</button></h5>' +
+    (kfHtml || '<div style="font-size:11px;color:var(--text-quaternary)">No files specified</div>') + '</div>' +
+
+    '<div class="sc-section"><h5>Examples <button class="sc-btn sc-btn-sm" style="margin-left:8px" onclick="scAddExample()">+ Add</button></h5>' +
+    (examplesHtml || '<div style="font-size:11px;color:var(--text-quaternary)">No examples added</div>') + '</div>';
+}
+
+function scAddInputField() {
+  if (scActiveIdx === null) return;
+  scSkills[scActiveIdx].inputFields.push({ name:'', type:'string', description:'', required:true });
+  scSave(); scRenderEditor(); scRenderYaml();
+}
+function scUpdateInputField(i, key, val) {
+  if (scActiveIdx === null) return;
+  scSkills[scActiveIdx].inputFields[i][key] = val;
+  scSave(); scRenderYaml();
+}
+function scRemoveInputField(i) {
+  if (scActiveIdx === null) return;
+  scSkills[scActiveIdx].inputFields.splice(i, 1);
+  scSave(); scRenderEditor(); scRenderYaml();
+}
+function scAddExample() {
+  if (scActiveIdx === null) return;
+  scSkills[scActiveIdx].examples.push({ input:'', output:'' });
+  scSave(); scRenderEditor(); scRenderYaml();
+}
+function scUpdateExample(i, key, val) {
+  if (scActiveIdx === null) return;
+  scSkills[scActiveIdx].examples[i][key] = val;
+  scSave(); scRenderYaml();
+}
+function scRemoveExample(i) {
+  if (scActiveIdx === null) return;
+  scSkills[scActiveIdx].examples.splice(i, 1);
+  scSave(); scRenderEditor(); scRenderYaml();
+}
+function scAddKF() {
+  if (scActiveIdx === null) return;
+  scSkills[scActiveIdx].knowledgeFiles.push('');
+  scSave(); scRenderEditor(); scRenderYaml();
+}
+function scUpdateKF(i, val) {
+  if (scActiveIdx === null) return;
+  scSkills[scActiveIdx].knowledgeFiles[i] = val;
+  scSave(); scRenderYaml();
+}
+function scRemoveKF(i) {
+  if (scActiveIdx === null) return;
+  scSkills[scActiveIdx].knowledgeFiles.splice(i, 1);
+  scSave(); scRenderEditor(); scRenderYaml();
+}
+
+function scBuildYaml(s) {
+  let y = '# Claude Skill: ' + s.name + '\n';
+  y += '# Category: ' + s.category + '\n';
+  y += '# Department: ' + (s.department||'') + ' | Tier: ' + s.tier + '\n\n';
+  y += 'name: ' + s.slug + '\n';
+  y += 'title: ' + s.name + '\n';
+  y += 'description: ' + s.description + '\n\n';
+  if (s.instructions) {
+    y += 'instructions: |\n';
+    s.instructions.split('\n').forEach(function(line) { y += '  ' + line + '\n'; });
+    y += '\n';
+  }
+  if (s.inputFields.length > 0) {
+    y += 'input_schema:\n  type: object\n  properties:\n';
+    s.inputFields.forEach(function(f) {
+      y += '    ' + (f.name || 'field') + ':\n';
+      y += '      type: ' + f.type + '\n';
+      if (f.description) y += '      description: ' + f.description + '\n';
+    });
+    var req = s.inputFields.filter(function(f) { return f.required; }).map(function(f) { return f.name; });
+    if (req.length) { y += '  required:\n'; req.forEach(function(r) { y += '    - ' + r + '\n'; }); }
+    y += '\n';
+  }
+  if (s.outputFormat) { y += 'output_format: ' + s.outputFormat + '\n\n'; }
+  if (s.knowledgeFiles.length > 0) {
+    y += 'knowledge_files:\n';
+    s.knowledgeFiles.forEach(function(f) { if (f) y += '  - ' + f + '\n'; });
+    y += '\n';
+  }
+  if (s.examples.length > 0) {
+    y += 'examples:\n';
+    s.examples.forEach(function(ex, i) {
+      y += '  - name: Example ' + (i+1) + '\n';
+      if (ex.input) { y += '    input: |\n'; ex.input.split('\n').forEach(function(l) { y += '      ' + l + '\n'; }); }
+      if (ex.output) { y += '    output: |\n'; ex.output.split('\n').forEach(function(l) { y += '      ' + l + '\n'; }); }
+    });
+    y += '\n';
+  }
+  y += 'metadata:\n  category: ' + s.category + '\n  department: ' + (s.department||'') + '\n  tier: ' + s.tier + '\n';
+  return y;
+}
+
+function scRenderYaml() {
+  var pre = document.getElementById('scYamlPreview');
+  if (!pre || scActiveIdx === null) return;
+  pre.textContent = scBuildYaml(scSkills[scActiveIdx]);
+}
+
+function scCopyYaml() {
+  if (scActiveIdx === null) return;
+  navigator.clipboard.writeText(scBuildYaml(scSkills[scActiveIdx]));
+}
+
+function scDownloadOne() {
+  if (scActiveIdx === null) return;
+  var s = scSkills[scActiveIdx];
+  var blob = new Blob([scBuildYaml(s)], {type:'text/yaml'});
+  var a = document.createElement('a'); a.href = URL.createObjectURL(blob);
+  a.download = (s.slug || 'skill') + '.yaml'; a.click(); URL.revokeObjectURL(a.href);
+}
+
+function scDownloadAll() {
+  var all = scSkills.map(function(s) { return scBuildYaml(s); }).join('\n---\n\n');
+  var blob = new Blob([all], {type:'text/yaml'});
+  var a = document.createElement('a'); a.href = URL.createObjectURL(blob);
+  a.download = 'all-skills.yaml'; a.click(); URL.revokeObjectURL(a.href);
+}
+
+scRenderList();
+
+// ====== GAP RESOLUTIONS ======
+const GAPS = [
+  {id:'gap-1', label:'BLOCKER 1', title:'Custom ERP Integration', description:'14 of 49 use cases (29%) require reading/writing data from your custom ERP. This needs a custom MCP server built specifically for your ERP\'s API. Estimated 2-4 weeks of developer time. <strong>Recommendation:</strong> Prioritize as a dedicated dev sprint in Month 2-3.'},
+  {id:'gap-2', label:'BLOCKER 2', title:'AutoCAD / CAD Integration', description:'3 Design use cases assume direct AutoCAD modification. Claude generates AutoLISP/Python scripts but can\'t run AutoCAD itself. This is a human-in-the-loop workflow (50-70% time savings), not full automation. The plan\'s framing may set unrealistic expectations.'},
+  {id:'gap-3', label:'BLOCKER 3', title:'Chase Follow-Up Dashboard', description:'The plan\'s flagship workflow is also the most technically demanding. Requires: ERP MCP connector, scheduled tasks, multi-user input, persistent dashboard. <strong>Recommendation:</strong> Build as a lightweight web app that Claude helps populate, not a pure Claude skill.'},
+  {id:'gap-4', label:'RISK 4', title:'Skills \u2260 Project Feature', description:'Skills work in Cowork (desktop) and are workspace-level, not project-scoped. You can\'t attach specific skills to a specific project. <strong>Recommendation:</strong> Reference skills in each project\'s instructions.'},
+  {id:'gap-5', label:'RISK 5', title:'Image/Video Generation', description:'DALL-E, Midjourney, and Runway are separate subscriptions and workflows. Claude can help with prompting and strategy, but actual generation happens externally. Budget separately.'},
+  {id:'gap-6', label:'RISK 6', title:'Travel API Integration (V2)', description:'AI Travel Desk needs flight/hotel booking APIs. No existing MCP connector covers this. Start with itinerary suggestions and expense templates before full booking automation.'},
+  {id:'gap-7', label:'RISK 7', title:'Productization Path', description:'Current Projects + Skills approach works for internal pilot but won\'t scale to a product. <strong>Recommendation:</strong> Validate which use cases deliver real ROI internally, then rebuild the top 10-15 as API agents using Claude API + Agent SDK.'}
+];
+var GAP_DASHBOARD_ID = 0;
+var gapResolutions = {};
+var gapExpandedId = null;
+
+function loadGapResolutions() {
+  try {
+    var saved = JSON.parse(localStorage.getItem('gap_resolutions_v2'));
+    if (saved) gapResolutions = saved;
+  } catch(e) {}
+  fetch('/api/gap-resolutions?dashboardId=' + GAP_DASHBOARD_ID)
+    .then(function(r) { return r.json(); })
+    .then(function(rows) {
+      if (Array.isArray(rows) && rows.length > 0) {
+        var fromDb = {};
+        rows.forEach(function(r) { fromDb[r.gapId] = r; });
+        gapResolutions = fromDb;
+        try { localStorage.setItem('gap_resolutions_v2', JSON.stringify(gapResolutions)); } catch(e) {}
+        renderAllGaps();
+      }
+    })
+    .catch(function() {});
+}
+
+function saveGapResolutions() {
+  try { localStorage.setItem('gap_resolutions_v2', JSON.stringify(gapResolutions)); } catch(e) {}
+}
+
+function syncGapToDb(gapId) {
+  var r = gapResolutions[gapId];
+  if (!r) return;
+  fetch('/api/gap-resolutions', {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      dashboardId: GAP_DASHBOARD_ID,
+      gapId: r.gapId || gapId,
+      status: r.status,
+      owner: r.owner,
+      currentState: r.currentState,
+      proposedSolution: r.proposedSolution,
+      requiredData: r.requiredData,
+      notes: r.notes,
+      linkedSkillSlugs: r.linkedSkillSlugs
+    })
+  }).catch(function() {});
+}
+
+var gapSyncTimers = {};
+function debouncedSync(gapId) {
+  clearTimeout(gapSyncTimers[gapId]);
+  gapSyncTimers[gapId] = setTimeout(function() { syncGapToDb(gapId); }, 500);
+}
+
+function getGapResolution(gapId) {
+  return gapResolutions[gapId] || { gapId: gapId, status: 'open', owner: '', currentState: '', proposedSolution: '', requiredData: '', notes: '', linkedSkillSlugs: [] };
+}
+
+function toggleGapForm(gapId, event) {
+  if (event) event.stopPropagation();
+  gapExpandedId = gapExpandedId === gapId ? null : gapId;
+  renderAllGaps();
+}
+
+function updateGapField(gapId, field, value) {
+  var r = getGapResolution(gapId);
+  r[field] = value;
+  r.updatedAt = new Date().toISOString();
+  if (r.status === 'open' && (r.owner || r.currentState || r.proposedSolution)) {
+    r.status = 'in_progress';
+  }
+  gapResolutions[gapId] = r;
+  saveGapResolutions();
+  debouncedSync(gapId);
+  renderAllGaps();
+}
+
+function setGapStatus(gapId, status) {
+  var r = getGapResolution(gapId);
+  r.status = status;
+  r.updatedAt = new Date().toISOString();
+  gapResolutions[gapId] = r;
+  saveGapResolutions();
+  syncGapToDb(gapId);
+  renderAllGaps();
+}
+
+function linkSkillToGap(gapId, slug) {
+  var r = getGapResolution(gapId);
+  if (!r.linkedSkillSlugs) r.linkedSkillSlugs = [];
+  if (r.linkedSkillSlugs.indexOf(slug) === -1) {
+    r.linkedSkillSlugs.push(slug);
+    r.updatedAt = new Date().toISOString();
+    gapResolutions[gapId] = r;
+    saveGapResolutions();
+    syncGapToDb(gapId);
+  }
+  renderAllGaps();
+}
+
+function unlinkSkillFromGap(gapId, slug, event) {
+  if (event) event.stopPropagation();
+  var r = getGapResolution(gapId);
+  r.linkedSkillSlugs = (r.linkedSkillSlugs || []).filter(function(s) { return s !== slug; });
+  r.updatedAt = new Date().toISOString();
+  gapResolutions[gapId] = r;
+  saveGapResolutions();
+  syncGapToDb(gapId);
+  renderAllGaps();
+}
+
+function navigateToSkill(slug, event) {
+  if (event) event.stopPropagation();
+  var idx = scSkills.findIndex(function(s) { return s.slug === slug; });
+  if (idx >= 0) {
+    navigate('skillcreator');
+    scSelect(idx);
+  }
+}
+
+function createSkillFromGap(gapId, event) {
+  if (event) event.stopPropagation();
+  var gap = GAPS.find(function(g) { return g.id === gapId; });
+  if (!gap) return;
+  var r = getGapResolution(gapId);
+  var desc = gap.description.replace(/<[^>]+>/g, '');
+  var slug = gap.title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+  var base = slug;
+  var counter = 1;
+  while (scSkills.some(function(s) { return s.slug === slug; })) { slug = base + '-' + (++counter); }
+  var tier = gap.label.indexOf('BLOCKER') >= 0 ? 't3' : 't2';
+  var newSkill = {
+    name: gap.title, slug: slug, description: desc, department: '', tier: tier,
+    category: 'custom', instructions: r.proposedSolution || '',
+    inputFields: [], outputFormat: '', examples: [], knowledgeFiles: []
+  };
+  scSkills.push(newSkill);
+  scSave();
+  linkSkillToGap(gapId, slug);
+  navigate('skillcreator');
+  scSelect(scSkills.length - 1);
+}
+
+function toggleLinkMenu(gapId, event) {
+  if (event) event.stopPropagation();
+  var menu = document.getElementById('linkMenu-' + gapId);
+  if (menu) menu.classList.toggle('open');
+}
+
+function renderGapLinkedSkills(gapId) {
+  var r = getGapResolution(gapId);
+  var slugs = r.linkedSkillSlugs || [];
+  if (slugs.length === 0) return '';
+  return slugs.map(function(slug) {
+    var skill = scSkills.find(function(s) { return s.slug === slug; });
+    var name = skill ? skill.name : slug;
+    return '<span class="gap-skill-pill"><span class="pill-name" onclick="navigateToSkill(\'' + slug + '\', event)">' + name + '</span><span class="pill-remove" onclick="unlinkSkillFromGap(\'' + gapId + '\',\'' + slug + '\', event)">\u00d7</span></span>';
+  }).join('');
+}
+
+function renderGapCard(gap) {
+  var r = getGapResolution(gap.id);
+  var isExpanded = gapExpandedId === gap.id;
+  var statusClass = 'status-' + r.status;
+  var linkedPills = renderGapLinkedSkills(gap.id);
+
+  var availableSkills = scSkills.filter(function(s) {
+    return (r.linkedSkillSlugs || []).indexOf(s.slug) === -1;
+  });
+  var menuItems = availableSkills.map(function(s) {
+    return '<div class="gap-link-menu-item" onclick="linkSkillToGap(\'' + gap.id + '\',\'' + s.slug + '\'); toggleLinkMenu(\'' + gap.id + '\', event)">' + s.name + '</div>';
+  }).join('');
+
+  var html = '<div class="gap-card ' + statusClass + (isExpanded ? ' expanded' : '') + '" data-gap-id="' + gap.id + '">';
+  html += '<div class="gap-header" onclick="toggleGapForm(\'' + gap.id + '\')">';
+  html += '<div style="flex:1"><div class="gap-number">' + gap.label + ' <span class="gap-status-pill ' + r.status + '">' + r.status.replace('_', ' ') + '</span></div>';
+  html += '<div class="gap-title">' + gap.title + '</div></div>';
+  html += '<span class="gap-chevron">&#9654;</span></div>';
+  html += '<div class="gap-desc">' + gap.description + '</div>';
+
+  if (linkedPills) {
+    html += '<div class="gap-linked-skills" style="margin-top:8px">' + linkedPills + '</div>';
+  }
+
+  html += '<div class="gap-form" onclick="event.stopPropagation()">';
+  html += '<div class="gap-form-row"><div class="gap-form-label">Owner</div>';
+  html += '<input class="gap-form-input" value="' + (r.owner || '').replace(/"/g,'&quot;') + '" placeholder="Who is responsible?" oninput="updateGapField(\'' + gap.id + '\',\'owner\',this.value)"></div>';
+  html += '<div class="gap-form-row"><div class="gap-form-label">Current State</div>';
+  html += '<textarea class="gap-form-input" rows="2" placeholder="What do we have today?" oninput="updateGapField(\'' + gap.id + '\',\'currentState\',this.value)">' + (r.currentState || '') + '</textarea></div>';
+  html += '<div class="gap-form-row"><div class="gap-form-label">Proposed Solution</div>';
+  html += '<textarea class="gap-form-input" rows="2" placeholder="How do we plan to resolve this?" oninput="updateGapField(\'' + gap.id + '\',\'proposedSolution\',this.value)">' + (r.proposedSolution || '') + '</textarea></div>';
+  html += '<div class="gap-form-row"><div class="gap-form-label">Required Data</div>';
+  html += '<textarea class="gap-form-input" rows="2" placeholder="What data or resources are needed?" oninput="updateGapField(\'' + gap.id + '\',\'requiredData\',this.value)">' + (r.requiredData || '') + '</textarea></div>';
+  html += '<div class="gap-form-row"><div class="gap-form-label">Notes</div>';
+  html += '<textarea class="gap-form-input" rows="2" placeholder="Additional context..." oninput="updateGapField(\'' + gap.id + '\',\'notes\',this.value)">' + (r.notes || '') + '</textarea></div>';
+
+  html += '<div class="gap-form-row"><div class="gap-form-label">Linked Skills</div>';
+  html += '<div class="gap-linked-skills">' + (linkedPills || '<span style="font-size:11px;color:var(--text-quaternary)">No skills linked</span>') + '</div></div>';
+
+  html += '<div class="gap-actions">';
+  html += '<div class="gap-link-dropdown"><button class="gap-btn gap-btn-accent" onclick="toggleLinkMenu(\'' + gap.id + '\', event)">Link Existing Skill \u25be</button>';
+  html += '<div class="gap-link-menu" id="linkMenu-' + gap.id + '">' + (menuItems || '<div class="gap-link-menu-item" style="color:var(--text-quaternary)">No skills available</div>') + '</div></div>';
+  html += '<button class="gap-btn gap-btn-accent" onclick="createSkillFromGap(\'' + gap.id + '\', event)">Create Skill from Gap</button>';
+
+  if (r.status !== 'in_progress') {
+    html += '<button class="gap-btn gap-btn-orange" onclick="setGapStatus(\'' + gap.id + '\',\'in_progress\')">Mark In Progress</button>';
+  }
+  if (r.status !== 'resolved') {
+    html += '<button class="gap-btn gap-btn-green" onclick="setGapStatus(\'' + gap.id + '\',\'resolved\')">Mark Resolved</button>';
+  }
+  if (r.status !== 'open') {
+    html += '<button class="gap-btn" onclick="setGapStatus(\'' + gap.id + '\',\'open\')">Reopen</button>';
+  }
+  html += '</div></div></div>';
+  return html;
+}
+
+function renderAllGaps() {
+  var el = document.getElementById('gapList');
+  if (!el) return;
+  el.innerHTML = GAPS.map(renderGapCard).join('');
+  updateGapProgress();
+  document.addEventListener('click', function() {
+    document.querySelectorAll('.gap-link-menu.open').forEach(function(m) { m.classList.remove('open'); });
+  });
+}
+
+function updateGapProgress() {
+  var resolved = 0;
+  GAPS.forEach(function(g) { if (getGapResolution(g.id).status === 'resolved') resolved++; });
+  var total = GAPS.length;
+  var label = document.getElementById('gapProgressLabel');
+  var fill = document.getElementById('gapProgressFill');
+  var badge = document.getElementById('gapNavBadge');
+  if (label) label.textContent = resolved + ' / ' + total + ' resolved';
+  if (fill) fill.style.width = (total > 0 ? Math.round((resolved / total) * 100) : 0) + '%';
+  if (badge) badge.textContent = resolved > 0 ? resolved + '/' + total : total;
+}
+
+loadGapResolutions();
+renderAllGaps();
+</script>
+
+</body>
+</html>
