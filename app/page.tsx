@@ -44,7 +44,10 @@ export default async function HomePage() {
 
       {error ? (
         <div className="bg-red-900/30 border border-red-800 rounded-lg px-4 py-3 text-sm text-red-300">
-          Failed to load dashboards. Please refresh the page.
+          <p>Failed to load dashboards. Please refresh the page.</p>
+          {process.env.NODE_ENV !== "production" && (
+            <p className="mt-1 text-xs text-red-400/70 font-mono">{error}</p>
+          )}
         </div>
       ) : dashboards.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-20 text-center">
