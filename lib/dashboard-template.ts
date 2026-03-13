@@ -1306,18 +1306,23 @@ function scRenderEditor() {
     '<span class="sc-label">Description</span><input class="sc-input" value="' + (s.description||'').replace(/"/g,'&quot;') + '" placeholder="One-line description" oninput="scUpdateField(\\'description\\',this.value)"></div>' +
 
     '<div class="sc-section"><h5>Instructions</h5>' +
+    '<div style="font-size:11px;color:var(--text-quaternary);margin:-4px 0 8px">System prompt for Claude — describe the skill\\'s purpose, tone, constraints, and step-by-step behavior.</div>' +
     '<textarea class="sc-textarea" style="min-height:120px" placeholder="Detailed instructions for Claude..." oninput="scUpdateField(\\'instructions\\',this.value)">' + (s.instructions||'') + '</textarea></div>' +
 
     '<div class="sc-section"><h5>Input Fields <button class="sc-btn sc-btn-sm" style="margin-left:8px" onclick="scAddInputField()">+ Add</button></h5>' +
+    '<div style="font-size:11px;color:var(--text-quaternary);margin:-4px 0 8px">Structured data the skill expects when invoked (e.g., order_text, part_number). Each field has a name, type, and description. These become the <code style="background:var(--border);padding:1px 4px;border-radius:3px">input_schema</code> in the YAML spec.</div>' +
     (fieldsHtml || '<div style="font-size:11px;color:var(--text-quaternary)">No input fields defined</div>') + '</div>' +
 
     '<div class="sc-section"><h5>Output Format</h5>' +
+    '<div style="font-size:11px;color:var(--text-quaternary);margin:-4px 0 8px">Describe the expected output structure — e.g., "Markdown table with columns: Part, Qty, Unit Cost, Total".</div>' +
     '<textarea class="sc-textarea" style="min-height:60px" placeholder="Describe expected output format..." oninput="scUpdateField(\\'outputFormat\\',this.value)">' + (s.outputFormat||'') + '</textarea></div>' +
 
     '<div class="sc-section"><h5>Knowledge Files <button class="sc-btn sc-btn-sm" style="margin-left:8px" onclick="scAddKF()">+ Add</button></h5>' +
+    '<div style="font-size:11px;color:var(--text-quaternary);margin:-4px 0 8px">Reference documents to upload to the Claude Project\\'s knowledge base (e.g., pricing_master.xlsx, product_catalog.csv). The skill creator records which files are needed — the operator uploads them during setup.</div>' +
     (kfHtml || '<div style="font-size:11px;color:var(--text-quaternary)">No files specified</div>') + '</div>' +
 
     '<div class="sc-section"><h5>Examples <button class="sc-btn sc-btn-sm" style="margin-left:8px" onclick="scAddExample()">+ Add</button></h5>' +
+    '<div style="font-size:11px;color:var(--text-quaternary);margin:-4px 0 8px">Input/output pairs that demonstrate expected behavior (few-shot examples). The more precise and representative these are, the more consistent Claude\\'s output will be.</div>' +
     (examplesHtml || '<div style="font-size:11px;color:var(--text-quaternary)">No examples added</div>') + '</div>';
 }
 
