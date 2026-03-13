@@ -7,7 +7,7 @@
 
 import fs from "fs";
 import path from "path";
-import { PDFDocument, rgb, StandardFonts, PDFPage, PDFFont, PDFImage } from "pdf-lib";
+import { PDFDocument, rgb, StandardFonts, PDFPage, PDFFont, PDFImage, degrees } from "pdf-lib";
 
 // A4 in points
 const PAGE_W = 595.27;
@@ -55,7 +55,8 @@ export interface OfferData {
 function fmtINR(amount: number): string {
   if (!amount) return "";
   const s = Math.round(amount).toString();
-  if (s.length <= 3) return `\u20B9 ${s}`;
+  // Use "Rs." instead of ₹ — standard PDF fonts (WinAnsi) can't encode U+20B9
+  if (s.length <= 3) return `Rs. ${s}`;
   const last3 = s.slice(-3);
   let rest = s.slice(0, -3);
   const parts: string[] = [];
@@ -64,7 +65,7 @@ function fmtINR(amount: number): string {
     rest = rest.slice(0, -2);
   }
   if (rest) parts.unshift(rest);
-  return `\u20B9 ${parts.join(",")},${last3}`;
+  return `Rs. ${parts.join(",")},${last3}`;
 }
 
 function fmtUSD(amount: number): string {
@@ -219,6 +220,15 @@ const LINK_BLUE = rgb(0, 0.4, 0.8);      // #0066CC
 const LIGHT_GREY = rgb(0.867, 0.867, 0.867); // #DDDDDD
 const DOT_GREY = rgb(0.667, 0.667, 0.667);  // #AAAAAA
 
+/** Replace characters that WinAnsi (standard PDF fonts) can't encode */
+function sanitize(text: string): string {
+  return text
+    .replace(/₹/g, "Rs.")
+    .replace(/[❖◆◇♦♢]/g, "*")
+    // Strip any remaining non-WinAnsi chars (keep ASCII + Latin-1 Supplement)
+    .replace(/[^\x00-\xFF]/g, "");
+}
+
 /** Approximate text width using font metrics (pdf-lib's widthOfTextAtSize) */
 function textWidth(font: PDFFont, text: string, size: number): number {
   return font.widthOfTextAtSize(text, size);
@@ -352,8 +362,15 @@ function drawPricingPage(
   for (const spec of data.specifications) {
     if (y < 120) break;
 
-    // Diamond marker (use a simple character since pdf-lib standard fonts lack ❖)
-    page.drawText("\u2666", { x: 165, y, font: regular, size: 7, color: RED });
+    // Diamond marker drawn as a small rotated square (standard fonts lack ❖/♦)
+    const dSize = 2.5;
+    const dX = 168, dY = y + 3;
+    page.drawRectangle({
+      x: dX - dSize, y: dY - dSize,
+      width: dSize * 2, height: dSize * 2,
+      color: RED,
+      rotate: degrees(45),
+    });
 
     // Spec name (bold + underline)
     const nameWidth = textWidth(bold, spec.name, 8);
@@ -454,7 +471,33 @@ function drawPricingPage(
   page.drawText("for any orders outside of India.", { x: 100 + flW + intW, y: pricingY, font: regular, size: 7, color: BLACK });
 }
 
-export async function generateOfferPdf(data: OfferData): Promise<Uint8Array> {
+export async function generateOfferPdf(rawData: OfferData): Promise<Uint8Array> {
+  // Sanitize all text fields for WinAnsi encoding (standard PDF fonts)
+  const data: OfferData = {
+    ...rawData,
+    series: sanitize(rawData.series),
+    date: sanitize(rawData.date),
+    proforma_no: sanitize(rawData.proforma_no),
+    customer_name: sanitize(rawData.customer_name),
+    customer_address: sanitize(rawData.customer_address),
+    machine_description: sanitize(rawData.machine_description),
+    pricing_note: sanitize(rawData.pricing_note),
+    installation_terms: sanitize(rawData.installation_terms),
+    service_commitment: sanitize(rawData.service_commitment),
+    specifications: rawData.specifications.map(s => ({
+      name: sanitize(s.name),
+      details: s.details.map(sanitize),
+    })),
+    pricing_items: rawData.pricing_items.map(p => ({
+      description: sanitize(p.description),
+      price: p.price,
+    })),
+    ink_prices: rawData.ink_prices.map(i => ({
+      description: sanitize(i.description),
+      price: i.price,
+    })),
+  };
+
   // Determine series → template path
   const isLP = data.series.toUpperCase().includes("L&P") || data.series.toUpperCase().includes("L & P");
   const seriesDir = isLP ? "lp_series" : "cseries";
