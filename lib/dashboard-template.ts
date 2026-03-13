@@ -66,18 +66,52 @@ export function generateDashboardHTML(data: DashboardData): string {
 
   const projectsHtml = data.projects
     .map(
-      (p) => `
-          <div class="project-item">
-            <div class="proj-top"><span class="proj-dept-badge">${escapeHtml(p.department)}</span></div>
+      (p) => {
+        const relatedEpics = data.epics.filter(e => e.department === p.department);
+        const tierKey = p.tier.toLowerCase().replace(/[^t1-4]/g, "").slice(0, 2) || "t1";
+        const epicListHtml = relatedEpics.length > 0
+          ? relatedEpics.map(e => {
+              const colLabels: Record<string, string> = { backlog: "Backlog", progress: "In Progress", blocked: "Blocked", done: "Done" };
+              const colColors: Record<string, string> = { backlog: "var(--text-quaternary)", progress: "var(--blue)", blocked: "var(--orange)", done: "var(--green)" };
+              return `<div class="proj-epic"><span class="proj-epic-name">${escapeHtml(e.name)}</span><span class="proj-epic-status" style="color:${colColors[e.column] || "var(--text-tertiary)"}">${colLabels[e.column] || e.column}</span><span class="proj-epic-tasks">${e.items.length} tasks</span></div>`;
+            }).join("")
+          : `<div class="proj-no-epics">No linked epics yet</div>`;
+        return `
+          <div class="project-item" onclick="toggleProject(this)">
+            <div class="proj-header">
+              <div class="proj-header-left">
+                <span class="proj-dept-badge">${escapeHtml(p.department)}</span>
+                <span class="proj-tier-badge ${tierKey}">${escapeHtml(p.tier)}</span>
+              </div>
+              <span class="proj-chevron">&#9654;</span>
+            </div>
             <div class="proj-name">${p.number}. ${escapeHtml(p.name)}</div>
             <div class="proj-desc">${escapeHtml(p.description)}</div>
-            <div class="proj-meta">
-              <div class="proj-meta-item"><strong>Use Cases:</strong> ${escapeHtml(p.useCaseRefs)}</div>
-              <div class="proj-meta-item"><strong>Knowledge:</strong> ${escapeHtml(p.knowledge)}</div>
-              <div class="proj-meta-item"><strong>Skills:</strong> ${escapeHtml(p.skills)}</div>
-              <div class="proj-meta-item"><strong>Tier:</strong> ${escapeHtml(p.tier)}</div>
+            <div class="proj-detail">
+              <div class="proj-detail-grid">
+                <div class="proj-detail-section">
+                  <div class="proj-detail-label">Use Cases</div>
+                  <div class="proj-detail-value">${escapeHtml(p.useCaseRefs)}</div>
+                </div>
+                <div class="proj-detail-section">
+                  <div class="proj-detail-label">Knowledge Required</div>
+                  <div class="proj-detail-value">${escapeHtml(p.knowledge)}</div>
+                </div>
+                <div class="proj-detail-section">
+                  <div class="proj-detail-label">Skills</div>
+                  <div class="proj-detail-value">${escapeHtml(p.skills)}</div>
+                </div>
+              </div>
+              <div class="proj-epics-section">
+                <div class="proj-detail-label">Related Epics on Roadmap</div>
+                <div class="proj-epics-list">${epicListHtml}</div>
+              </div>
+              <div class="proj-actions">
+                <button class="proj-roadmap-btn" onclick="event.stopPropagation();goToPage('kanban')">View on Roadmap Board &rarr;</button>
+              </div>
             </div>
-          </div>`
+          </div>`;
+      }
     )
     .join("\n");
 
@@ -247,15 +281,35 @@ export function generateDashboardHTML(data: DashboardData): string {
   .badge.custom { background: rgba(239,68,68,0.1); color: var(--red); }
   .badge.builtin { background: rgba(59,130,246,0.1); color: var(--blue); }
   .project-list { display: flex; flex-direction: column; gap: 8px; }
-  .project-item { background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius); padding: 20px; transition: border-color 0.15s; }
-  .project-item:hover { border-color: var(--border-hover); }
-  .proj-top { display: flex; align-items: center; gap: 10px; margin-bottom: 4px; }
+  .project-item { background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius); padding: 20px; transition: border-color 0.15s, background 0.15s; cursor: pointer; }
+  .project-item:hover { border-color: var(--border-hover); background: var(--bg-card-hover); }
+  .proj-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px; }
+  .proj-header-left { display: flex; align-items: center; gap: 8px; }
   .proj-dept-badge { font-size: 11px; color: var(--accent); font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; }
+  .proj-tier-badge { font-size: 10px; font-weight: 600; padding: 2px 8px; border-radius: 4px; text-transform: uppercase; }
+  .proj-tier-badge.t1 { background: rgba(34,197,94,0.1); color: var(--green); }
+  .proj-tier-badge.t2 { background: rgba(59,130,246,0.1); color: var(--blue); }
+  .proj-tier-badge.t3 { background: rgba(249,115,22,0.1); color: var(--orange); }
+  .proj-tier-badge.t4 { background: rgba(168,85,247,0.1); color: var(--purple); }
+  .proj-chevron { color: var(--text-quaternary); font-size: 12px; transition: transform 0.2s; }
+  .project-item.expanded .proj-chevron { transform: rotate(90deg); }
   .proj-name { font-size: 14px; font-weight: 600; color: var(--text-primary); margin-bottom: 4px; }
-  .proj-desc { font-size: 13px; color: var(--text-tertiary); margin-bottom: 12px; }
-  .proj-meta { display: flex; gap: 16px; flex-wrap: wrap; }
-  .proj-meta-item { font-size: 12px; color: var(--text-tertiary); }
-  .proj-meta-item strong { color: var(--text-secondary); font-weight: 500; }
+  .proj-desc { font-size: 13px; color: var(--text-tertiary); margin-bottom: 0; }
+  .proj-detail { display: none; margin-top: 16px; padding-top: 16px; border-top: 1px solid var(--border); }
+  .project-item.expanded .proj-detail { display: block; }
+  .proj-detail-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin-bottom: 16px; }
+  .proj-detail-label { font-size: 11px; font-weight: 600; color: var(--text-tertiary); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 6px; }
+  .proj-detail-value { font-size: 13px; color: var(--text-secondary); line-height: 1.6; }
+  .proj-epics-section { margin-bottom: 16px; }
+  .proj-epics-list { display: flex; flex-direction: column; gap: 6px; }
+  .proj-epic { display: flex; align-items: center; gap: 12px; padding: 8px 12px; background: var(--bg); border: 1px solid var(--border-light); border-radius: var(--radius-sm); }
+  .proj-epic-name { font-size: 13px; color: var(--text-primary); flex: 1; }
+  .proj-epic-status { font-size: 11px; font-weight: 600; }
+  .proj-epic-tasks { font-size: 11px; color: var(--text-tertiary); }
+  .proj-no-epics { font-size: 12px; color: var(--text-quaternary); padding: 8px 0; }
+  .proj-actions { display: flex; gap: 8px; }
+  .proj-roadmap-btn { padding: 8px 16px; border-radius: var(--radius-sm); font-size: 12px; font-weight: 500; cursor: pointer; border: 1px solid var(--accent); background: transparent; color: var(--accent); transition: all 0.15s; font-family: inherit; }
+  .proj-roadmap-btn:hover { background: var(--accent-light); }
   .gap-list { display: flex; flex-direction: column; gap: 8px; }
   .gap-card { background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius); padding: 20px; border-left: 3px solid var(--red); cursor: pointer; transition: border-color 0.2s, background 0.15s; }
   .gap-card:hover { background: var(--bg-card-hover); }
@@ -420,7 +474,7 @@ export function generateDashboardHTML(data: DashboardData): string {
   .arch-toggle-body p strong { color: var(--text-primary); }
 
   @media (max-width: 1100px) { .timeline-grid { grid-template-columns: repeat(2, 1fr); } .kanban-board { grid-template-columns: repeat(2, 1fr); } }
-  @media (max-width: 800px) { .sidebar { display: none; } .main-area { margin-left: 0; } .content { padding: 20px; } .timeline-grid { grid-template-columns: 1fr; } .charts-grid { grid-template-columns: 1fr; } .kanban-board { grid-template-columns: 1fr; } .dept-grid { grid-template-columns: 1fr; } .kpi-grid { grid-template-columns: repeat(2, 1fr); } .readiness-strip { grid-template-columns: 1fr; } .action-grid { grid-template-columns: 1fr; } .matrix-label { width: 100px; } }
+  @media (max-width: 800px) { .sidebar { display: none; } .main-area { margin-left: 0; } .content { padding: 20px; } .timeline-grid { grid-template-columns: 1fr; } .charts-grid { grid-template-columns: 1fr; } .kanban-board { grid-template-columns: 1fr; } .dept-grid { grid-template-columns: 1fr; } .kpi-grid { grid-template-columns: repeat(2, 1fr); } .readiness-strip { grid-template-columns: 1fr; } .action-grid { grid-template-columns: 1fr; } .matrix-label { width: 100px; } .proj-detail-grid { grid-template-columns: 1fr; } }
 
   /* Skill Creator */
   .sc-layout { display: flex; gap: 0; min-height: 600px; }
@@ -923,6 +977,10 @@ function toggleArchNote() {
   var chevron = document.getElementById('archChevron');
   body.classList.toggle('open');
   chevron.style.transform = body.classList.contains('open') ? 'rotate(90deg)' : '';
+}
+
+function toggleProject(el) {
+  el.classList.toggle('expanded');
 }
 
 const SEARCH_DATA = [];
