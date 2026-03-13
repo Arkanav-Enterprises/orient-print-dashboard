@@ -1,5 +1,5 @@
 # Claude Context: AI Integration Rollout — The Printers Houst Pvt. Ltd.
-## Last Updated: March 12, 2026 (V2)
+## Last Updated: March 13, 2026 (V2.1 — Offer Generator demo complete)
 
 > **Purpose**: Drop this file into any Claude Project or Cowork session to give Claude full context on the AI rollout. It covers architecture decisions, use case mappings, dependencies, and current status.
 
@@ -147,7 +147,7 @@ Skills (Cowork desktop) cannot be "attached to" a specific Project. They're avai
 
 ---
 
-## 10 Custom Skills to Build
+## 11 Custom Skills to Build
 
 | # | Skill Name | Input | Output | Dependency |
 |---|-----------|-------|--------|------------|
@@ -161,6 +161,7 @@ Skills (Cowork desktop) cannot be "attached to" a specific Project. They're avai
 | 8 | Reorder Alert System | Inventory levels | Threshold alerts + reorder suggestions | ERP MCP + scheduled tasks |
 | 9 | Outbound Enquiry Pipeline (V2) | Target criteria | Qualified leads → outreach sequences | IndiaMart/trade directory access |
 | 10 | Travel Desk Coordinator (V2) | Service visit details | Itinerary + booking + expense report | Travel API MCP |
+| 11 | **Offer Generator** ✅ LIVE | Machine spec + domestic/intl flag | Professional offer PDF with pricing + T&C | Pricing master spreadsheet + T&C PDFs |
 
 ---
 
@@ -182,9 +183,36 @@ Skills (Cowork desktop) cannot be "attached to" a specific Project. They're avai
 
 ---
 
+## Offer Generator — First Working Demo (March 13, 2026)
+
+The first skill to go live. Located at `Offer_Generator_Project/`. This is a Claude Enterprise Project demo showing how a team member enters a machine spec and gets a calculated offer with correct pricing and T&C.
+
+**Project files (for Claude Enterprise):**
+- `PROJECT_INSTRUCTIONS.md` — System prompt (paste as project instructions)
+- `KNOWLEDGE_Pricing_Logic.md` — Head count formulas, margin calculations, sheet structure
+- `KNOWLEDGE_Price_List_Digital.xlsx` — Pricing master (5 sheets: C-Series 600/1200, L&P 600/1200, Extra Colour)
+- `KNOWLEDGE_Domestic_TnC.md` — Full domestic General Terms and Conditions of Sale
+- `KNOWLEDGE_International_TnC.md` — Full international T&C (includes export clauses, LC payment, visa provisions)
+- `DEMO_Offer_Output.pdf` — Sample output: C-Series 600dpi, 540mm, Kyocera RC, Duplex, 4-color = ₹5,79,52,500
+
+**Pricing model:**
+- Core costs: IDS boards + print heads + electronics (scale with width/colors/duplex)
+- Add-ons: Unwind, printing unit, IR drying, wide web, coating, rewind, RIP, sheeter, misc, installation
+- Head count formula: `ceil(width_mm / head_coverage_mm) × colors × duplex_factor`
+- Offer price = Total Cost / (1 - 0.20) — 20% gross margin
+- Never reveal internal costs or partner margin (10%) to customer
+
+**Next.js Dashboard integration:**
+- Added to backfill data as skill #11 with full pre-populated instructions, input fields, output format, examples, and knowledge file references
+- Shows in Skill Creator with "LIVE" tag
+- Category: sales, Department: Marketing & Sales, Tier: T2
+
+---
+
 ## Source Files
 - `AI_Integration_Master_Plan_FINAL.pages` — Original V1 master plan
 - `AI_Integration_Master_Plan_V2.docx` — Updated V2 (49 use cases)
 - `AI_Integration_Summary_Presentation.pptx` — 14-slide stakeholder deck (matches V2)
-- `AI_Rollout_Dashboard.html` — Interactive dashboard with Kanban board
+- `AI_Rollout_Dashboard.html` — Static HTML dashboard (legacy, replaced by Next.js app)
+- `Offer_Generator_Project/` — First working demo project (6 files)
 - This file — Shareable context for any Claude session

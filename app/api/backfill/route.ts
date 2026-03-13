@@ -12,7 +12,7 @@ const PRINTERS_HOUST_DATA: DashboardData = {
   totalDepartments: 7,
   totalPhases: 4,
   quickWins: 14,
-  customSkillsCount: 10,
+  customSkillsCount: 11,
   timeline: "~6mo",
   architectureRec: 'Instead of 7 department-level Projects, use ~18 functional Projects grouped by workflow cluster. Many departments have use cases with very different context needs (e.g., Marketing\'s "Offer Creation" needs a pricing database while "SEO Workflow" needs web search). Splitting by function gives each Project a focused instruction set and relevant knowledge files. <strong>V2 adds 3 new use cases:</strong> Auto Sales Follow-Up, Outbound Enquiry Generation (both Marketing), and AI Travel Desk (Servicing).',
   tiers: [
@@ -141,6 +141,7 @@ const PRINTERS_HOUST_DATA: DashboardData = {
     { name: "Reorder Alert System", tag: "Custom", description: "Inventory monitoring with threshold alerts. Needs ERP + scheduled tasks." },
     { name: "Outbound Enquiry Pipeline", tag: "V2", description: "Prospect discovery from IndiaMart/trade directories to qualified leads." },
     { name: "Travel Desk Coordinator", tag: "V2", description: "Service engineer travel booking, itinerary, expense reports." },
+    { name: "Offer Generator", tag: "LIVE", description: "Machine spec to professional offer PDF with calculated pricing and domestic/international T&C. First working demo." },
   ],
   epics: [
     { id: "e1", name: "Project Setup & Enterprise Config", department: "Infrastructure", tier: "t1", column: "progress", items: ["Provision Claude Enterprise accounts for all departments", "Create 18 functional Projects with instructions", "Upload knowledge files per project", "Set up Cowork desktop for power users", "Draft project instruction templates"] },
@@ -177,6 +178,45 @@ const SKILLS = [
   { slug: "reorder-alert-system", name: "Reorder Alert System", category: "operations", department: "Supply Chain", tier: "t3", description: "Inventory monitoring with threshold alerts. Needs ERP + scheduled tasks." },
   { slug: "outbound-enquiry-pipeline", name: "Outbound Enquiry Pipeline", category: "sales", department: "Marketing & Sales", tier: "t3", description: "Prospect discovery from IndiaMart/trade directories to qualified leads." },
   { slug: "travel-desk-coordinator", name: "Travel Desk Coordinator", category: "servicing", department: "Servicing", tier: "t4", description: "Service engineer travel booking, itinerary, expense reports." },
+  {
+    slug: "offer-generator",
+    name: "Offer Generator",
+    category: "sales",
+    department: "Marketing & Sales",
+    tier: "t2",
+    description: "Machine spec to professional offer document with calculated pricing from master spreadsheet, delivery terms, and domestic/international T&C. First working skill — demo complete.",
+    instructions: `You are the Orient Jet Offer Generator. When a team member provides a machine specification, generate a professional offer document.
+
+WORKFLOW:
+1. Ask if the order is DOMESTIC or INTERNATIONAL (this determines which T&C to append)
+2. Identify the machine series (C-Series or L&P Series), resolution (600/1200 dpi), and head technology from the spec
+3. Look up pricing from the Price List Digital spreadsheet (match the correct sheet by series + resolution)
+4. Calculate: heads_per_color_per_side = ceil(print_width / head_coverage_mm), total_heads = that × colors × duplex_factor
+5. Calculate core costs (IDS × qty, Heads × qty, Electronics × qty) + add-on components
+6. Apply 20% gross margin: Offer Price = Total Cost / (1 - 0.20)
+7. Format the offer with machine spec table, pricing table, delivery terms, payment terms, and full T&C
+
+RULES:
+- Always show prices in Indian numbering (₹X,XX,XX,XXX)
+- Never reveal internal cost prices or partner margin
+- Offer price = GM Price (20% margin). Never show Partner Price
+- Default delivery: 4 months. Override if user specifies different
+- Default payment: 50% advance + 50% before dispatch`,
+    inputFields: [
+      { name: "machine_spec", type: "string", description: "Full machine specification (series, resolution, head tech, width, duplex, colors, component quantities)", required: true },
+      { name: "order_type", type: "string", description: "domestic or international", required: true },
+      { name: "customer_name", type: "string", description: "Customer company name", required: false },
+      { name: "delivery_months", type: "number", description: "Custom delivery timeline in months (default: 4)", required: false },
+    ],
+    outputFormat: "Professional offer document with: company header, reference number, machine spec table, itemized pricing table with quantities and amounts, total offer price, delivery terms, payment terms, and complete Terms & Conditions (domestic or international)",
+    examples: [
+      {
+        input: "Orient Jet C Series 600x600 dpi Kyocera RC, width 540 mm, Duplex, 4 colours, unwind unit qty 1, printing unit qty 1, ir drying qty 2, extra for wide web qty 1, coating + drying qty 1, rewind qty 1, rip + server + imposition software qty 1, sheeter qty 1, miscellaneous qty 0, installation & commissioning qty 1. Delivery 6 months.",
+        output: "Total Offer Price: ₹5,79,52,500 (Core: ₹2,91,72,000 + Add-ons: ₹1,71,90,000 = Cost ₹4,63,62,000 at 20% GM). Delivery: 6 months. Full domestic T&C attached."
+      }
+    ],
+    knowledgeFiles: ["KNOWLEDGE_Price_List_Digital.xlsx", "KNOWLEDGE_Pricing_Logic.md", "KNOWLEDGE_Domestic_TnC.md", "KNOWLEDGE_International_TnC.md"],
+  },
 ];
 
 export async function POST() {
@@ -231,12 +271,20 @@ export async function POST() {
       }
     }
 
-    // 4. Insert skills (upsert by slug)
+    // 4. Insert skills (upsert by slug) — includes full data for pre-populated skills
     let skillsInserted = 0;
     for (const skill of SKILLS) {
+      const instructions = (skill as Record<string, unknown>).instructions as string || "";
+      const inputFields = (skill as Record<string, unknown>).inputFields as unknown[] || [];
+      const outputFormat = (skill as Record<string, unknown>).outputFormat as string || "";
+      const examples = (skill as Record<string, unknown>).examples as unknown[] || [];
+      const knowledgeFiles = (skill as Record<string, unknown>).knowledgeFiles as string[] || [];
       const [row] = await sql`
-        INSERT INTO skills (slug, name, category, department, tier, description)
-        VALUES (${skill.slug}, ${skill.name}, ${skill.category}, ${skill.department}, ${skill.tier}, ${skill.description})
+        INSERT INTO skills (slug, name, category, department, tier, description,
+                            instructions, input_fields, output_format, examples, knowledge_files)
+        VALUES (${skill.slug}, ${skill.name}, ${skill.category}, ${skill.department}, ${skill.tier}, ${skill.description},
+                ${instructions}, ${JSON.stringify(inputFields)}, ${outputFormat},
+                ${JSON.stringify(examples)}, ${JSON.stringify(knowledgeFiles)})
         ON CONFLICT (slug) DO NOTHING
         RETURNING id
       `;
