@@ -1200,15 +1200,20 @@ let scSkills = SC_SEEDS.map(s => ({
 }));
 let scActiveIdx = null;
 
-// Load saved skill data
-try {
-  const saved = JSON.parse(localStorage.getItem('sc_skills'));
-  if (saved && saved.length) scSkills = saved;
-} catch(e) {}
-
 function scSave() {
   try { localStorage.setItem('sc_skills', JSON.stringify(scSkills)); } catch(e) {}
 }
+
+// Load saved skill data, merging in any new seeds
+try {
+  const saved = JSON.parse(localStorage.getItem('sc_skills'));
+  if (saved && saved.length) {
+    const savedSlugs = new Set(saved.map(function(s) { return s.slug; }));
+    const newSeeds = scSkills.filter(function(s) { return !savedSlugs.has(s.slug); });
+    scSkills = saved.concat(newSeeds);
+    if (newSeeds.length) scSave();
+  }
+} catch(e) {}
 
 function scRenderList() {
   const el = document.getElementById('scListItems');
