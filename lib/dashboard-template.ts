@@ -1658,7 +1658,7 @@ function offerLoadHistory() {
         var actions = '';
         if (r.has_pdf) {
           actions += '<span onclick="event.stopPropagation();offerPreview(' + r.id + ',\\'' + (r.filename || '').replace(/'/g, '') + '\\')" title="Preview PDF" style="color:var(--blue);cursor:pointer;margin-right:8px;font-size:14px;">\\u25B6</span>';
-          actions += '<a href="/api/offers/' + r.id + '/pdf" onclick="event.stopPropagation()" title="Download PDF" style="color:var(--blue);text-decoration:none;margin-right:8px;font-size:14px;cursor:pointer;">\\u2913</a>';
+          actions += '<a href="/api/offers/' + r.id + '/pdf?dl=1" onclick="event.stopPropagation()" title="Download PDF" style="color:var(--blue);text-decoration:none;margin-right:8px;font-size:14px;cursor:pointer;">\\u2913</a>';
         }
         actions += '<span onclick="event.stopPropagation();offerDelete(' + r.id + ')" title="Delete" style="color:var(--muted);cursor:pointer;font-size:14px;opacity:0.6;transition:opacity 0.2s;" onmouseover="this.style.opacity=1;this.style.color=\\'#ef4444\\'" onmouseout="this.style.opacity=0.6;this.style.color=\\'var(--muted)\\'">\\u2715</span>';
         var rowClick = r.has_pdf ? ' onclick="offerPreview(' + r.id + ',\\'' + (r.filename || '').replace(/'/g, '') + '\\')" style="border-bottom:1px solid var(--border);cursor:pointer;transition:background 0.15s;" onmouseover="this.style.background=\\'rgba(255,255,255,0.03)\\'" onmouseout="this.style.background=\\'\\'"' : ' style="border-bottom:1px solid var(--border);"';
@@ -1684,7 +1684,7 @@ function offerPreview(id, filename) {
   document.getElementById('pdfPreviewFrame').src = url;
   document.getElementById('pdfPreviewTitle').textContent = filename || 'Offer Preview';
   var dl = document.getElementById('pdfPreviewDownload');
-  dl.href = url;
+  dl.href = url + '?dl=1';
   dl.download = filename || 'Offer.pdf';
   document.getElementById('pdfPreviewModal').style.display = 'block';
   document.body.style.overflow = 'hidden';

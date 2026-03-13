@@ -11,10 +11,12 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
     if (!row || !row.pdf_data) return NextResponse.json({ error: "PDF not found" }, { status: 404 });
 
     const filename = row.filename || `Offer_${offerId}.pdf`;
+    const { searchParams } = new URL(_request.url);
+    const disposition = searchParams.get("dl") === "1" ? "attachment" : "inline";
     return new NextResponse(row.pdf_data as unknown as BodyInit, {
       headers: {
         "Content-Type": "application/pdf",
-        "Content-Disposition": `attachment; filename="${filename}"`,
+        "Content-Disposition": `${disposition}; filename="${filename}"`,
       },
     });
   } catch (err: unknown) {
