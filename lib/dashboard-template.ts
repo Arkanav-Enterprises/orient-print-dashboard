@@ -431,6 +431,11 @@ export function generateDashboardHTML(data: DashboardData): string {
         Skill Creator
         <span class="nav-badge">${skillCreatorSeeds.length}</span>
       </div>
+      <div class="nav-item" onclick="navigate('offergenerator')">
+        <span class="nav-icon"><svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M3 2h7l3 3v9H3V2z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/><path d="M6 9h4M6 11.5h2.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg></span>
+        Offer Generator
+        <span class="nav-badge" id="offerBadge" style="background:var(--green);color:#000;font-weight:700;font-size:9px;">LIVE</span>
+      </div>
       <div class="nav-section-label">Manage</div>
       <div class="nav-item" onclick="navigate('settings')">
         <span class="nav-icon"><svg width="16" height="16" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="2" stroke="currentColor" stroke-width="1.5"/><path d="M13.5 8a5.5 5.5 0 01-.3 1.8l1.3.8-.9 1.5-1.4-.5a5.5 5.5 0 01-1.5 1l.2 1.5H9.1l.2-1.5a5.5 5.5 0 01-1.5-1l-1.4.5-.9-1.5 1.3-.8A5.5 5.5 0 016.5 8c0-.6.1-1.2.3-1.8L5.5 5.4l.9-1.5 1.4.5a5.5 5.5 0 011.5-1L9.1 1.9h1.8l-.2 1.5a5.5 5.5 0 011.5 1l1.4-.5.9 1.5-1.3.8c.2.6.3 1.2.3 1.8z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/></svg></span>
@@ -684,6 +689,41 @@ export function generateDashboardHTML(data: DashboardData): string {
         </div>
       </div>
 
+      <!-- OFFER GENERATOR -->
+      <div id="offergenerator" class="page">
+        <div class="page-header">
+          <div class="page-title">Offer Generator</div>
+          <div class="page-desc">Upload the Sections A–E output from the Claude Enterprise Pricing Project to generate a branded 8-page offer DOCX.</div>
+        </div>
+        <div style="display:flex;gap:24px;flex-wrap:wrap;">
+          <!-- Upload + Generate -->
+          <div style="flex:1;min-width:320px;max-width:480px;display:flex;flex-direction:column;gap:16px;">
+            <div id="offerDropzone" style="border:2px dashed var(--border);border-radius:var(--radius);padding:32px;text-align:center;cursor:pointer;transition:border-color 0.2s,background 0.2s;" onclick="document.getElementById('offerFileInput').click()">
+              <input type="file" id="offerFileInput" accept=".docx,.txt,.md" style="display:none" onchange="offerFileSelected(this)">
+              <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="var(--muted)" stroke-width="1.5" style="margin:0 auto 8px;display:block;opacity:0.5"><path d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"/></svg>
+              <div style="font-size:13px;font-weight:500;color:var(--text)">Drop a .docx file here or click to upload</div>
+              <div style="font-size:11px;color:var(--muted);margin-top:4px">.docx (from Claude artifact) or .txt</div>
+              <div id="offerFileName" style="font-size:11px;color:var(--blue);margin-top:8px;display:none"></div>
+            </div>
+            <div id="offerError" style="background:rgba(220,38,38,0.15);border:1px solid rgba(220,38,38,0.3);border-radius:8px;padding:8px 12px;font-size:12px;color:#fca5a5;display:none"></div>
+            <button id="offerGenBtn" onclick="offerGenerate()" disabled style="background:var(--text);color:var(--bg);font-weight:600;font-size:13px;padding:10px 20px;border:none;border-radius:8px;cursor:pointer;opacity:0.4;transition:opacity 0.2s;">Generate Offer</button>
+            <div id="offerDownload" style="display:none">
+              <a id="offerDownloadLink" style="display:inline-flex;align-items:center;gap:6px;background:var(--bg-card);border:1px solid var(--border);border-radius:8px;padding:8px 16px;font-size:12px;color:var(--text);text-decoration:none;transition:border-color 0.2s;" download>
+                <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M7 2v8M4 7l3 3 3-3"/><path d="M2 11h10"/></svg>
+                <span id="offerDownloadName">Download</span>
+              </a>
+            </div>
+          </div>
+          <!-- History -->
+          <div style="flex:2;min-width:320px;">
+            <h3 style="font-size:13px;font-weight:600;color:var(--text);margin:0 0 12px;">Recent Offers</h3>
+            <div id="offerHistory" style="background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;">
+              <div style="padding:24px;text-align:center;font-size:12px;color:var(--muted)">Loading...</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
       <!-- SETTINGS -->
       <div id="settings" class="page">
         <div class="page-header">
@@ -744,7 +784,7 @@ function navigate(id) {
   document.getElementById(id).classList.add('active');
   event.currentTarget.classList.add('active');
   currentPage = id;
-  const names = { overview:'Overview', departments:'Departments', skills:'Skill Mapping', projects:'Projects', kanban:'Roadmap Board', gaps:'Gaps & Risks', skillcreator:'Skill Creator', settings:'Settings' };
+  const names = { overview:'Overview', departments:'Departments', skills:'Skill Mapping', projects:'Projects', kanban:'Roadmap Board', gaps:'Gaps & Risks', skillcreator:'Skill Creator', offergenerator:'Offer Generator', settings:'Settings' };
   document.getElementById('breadcrumb').textContent = names[id] || id;
   document.getElementById('searchInput').value = '';
   document.getElementById('searchResults').classList.remove('visible');
@@ -1451,6 +1491,127 @@ scRenderList();
 // Init gap resolutions (after scSkills is available)
 loadGapResolutions();
 renderAllGaps();
+
+// ====== OFFER GENERATOR ======
+const OFFER_DASHBOARD_ID = GAP_DASHBOARD_ID;
+var offerFile = null;
+
+// Drag and drop
+var dz = document.getElementById('offerDropzone');
+if (dz) {
+  dz.addEventListener('dragover', function(e) { e.preventDefault(); dz.style.borderColor='var(--blue)'; dz.style.background='rgba(59,130,246,0.05)'; });
+  dz.addEventListener('dragleave', function() { dz.style.borderColor='var(--border)'; dz.style.background=''; });
+  dz.addEventListener('drop', function(e) {
+    e.preventDefault(); dz.style.borderColor='var(--border)'; dz.style.background='';
+    if (e.dataTransfer.files[0]) offerFileSelected({ files: [e.dataTransfer.files[0]] });
+  });
+}
+
+function offerFileSelected(input) {
+  var f = input.files && input.files[0];
+  if (!f) return;
+  offerFile = f;
+  document.getElementById('offerFileName').textContent = f.name;
+  document.getElementById('offerFileName').style.display = 'block';
+  document.getElementById('offerGenBtn').disabled = false;
+  document.getElementById('offerGenBtn').style.opacity = '1';
+  document.getElementById('offerError').style.display = 'none';
+  document.getElementById('offerDownload').style.display = 'none';
+  // Reset file input so re-selecting same file works
+  document.getElementById('offerFileInput').value = '';
+}
+
+function offerGenerate() {
+  if (!offerFile) return;
+  var btn = document.getElementById('offerGenBtn');
+  btn.textContent = 'Generating...'; btn.disabled = true; btn.style.opacity = '0.4';
+  document.getElementById('offerError').style.display = 'none';
+  document.getElementById('offerDownload').style.display = 'none';
+
+  var fd = new FormData();
+  fd.append('file', offerFile);
+
+  fetch('/api/tools/offer-generator', { method: 'POST', body: fd })
+    .then(function(res) {
+      if (!res.ok) return res.json().then(function(d) { throw new Error(d.error || 'Generation failed'); });
+      // Extract metadata from headers
+      var meta = {
+        customer: res.headers.get('X-Offer-Customer') || '',
+        series: res.headers.get('X-Offer-Series') || '',
+        proforma: res.headers.get('X-Offer-Proforma') || '',
+        orderType: res.headers.get('X-Offer-Type') || '',
+        total: parseFloat(res.headers.get('X-Offer-Total') || '0'),
+        filename: res.headers.get('X-Offer-Filename') || 'Orient_Jet_Offer.docx'
+      };
+      return res.blob().then(function(blob) { return { blob: blob, meta: meta }; });
+    })
+    .then(function(result) {
+      var url = URL.createObjectURL(result.blob);
+      var dl = document.getElementById('offerDownloadLink');
+      dl.href = url; dl.download = result.meta.filename;
+      document.getElementById('offerDownloadName').textContent = result.meta.filename;
+      document.getElementById('offerDownload').style.display = 'block';
+
+      // Save to offers table
+      if (OFFER_DASHBOARD_ID > 0) {
+        fetch('/api/offers', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            dashboardId: OFFER_DASHBOARD_ID,
+            customerName: result.meta.customer,
+            series: result.meta.series,
+            proformaNo: result.meta.proforma,
+            orderType: result.meta.orderType,
+            totalPrice: result.meta.total,
+            filename: result.meta.filename
+          })
+        }).then(function() { offerLoadHistory(); }).catch(function() {});
+      }
+
+      btn.textContent = 'Generate Offer'; btn.disabled = false; btn.style.opacity = '1';
+    })
+    .catch(function(err) {
+      document.getElementById('offerError').textContent = err.message;
+      document.getElementById('offerError').style.display = 'block';
+      btn.textContent = 'Generate Offer'; btn.disabled = false; btn.style.opacity = '1';
+    });
+}
+
+function offerLoadHistory() {
+  var el = document.getElementById('offerHistory');
+  if (!el || OFFER_DASHBOARD_ID <= 0) {
+    el.innerHTML = '<div style="padding:24px;text-align:center;font-size:12px;color:var(--muted)">Save a dashboard first to track offer history</div>';
+    return;
+  }
+  fetch('/api/offers?dashboardId=' + OFFER_DASHBOARD_ID)
+    .then(function(r) { return r.json(); })
+    .then(function(rows) {
+      if (!Array.isArray(rows) || rows.length === 0) {
+        el.innerHTML = '<div style="padding:24px;text-align:center;font-size:12px;color:var(--muted)">No offers generated yet</div>';
+        return;
+      }
+      var html = '<table style="width:100%;border-collapse:collapse;font-size:12px;">' +
+        '<tr style="border-bottom:1px solid var(--border);"><th style="text-align:left;padding:8px 12px;color:var(--muted);font-weight:500;">Customer</th><th style="text-align:left;padding:8px 12px;color:var(--muted);font-weight:500;">Series</th><th style="text-align:left;padding:8px 12px;color:var(--muted);font-weight:500;">Proforma</th><th style="text-align:right;padding:8px 12px;color:var(--muted);font-weight:500;">Total</th><th style="text-align:right;padding:8px 12px;color:var(--muted);font-weight:500;">Date</th></tr>';
+      rows.forEach(function(r) {
+        var d = new Date(r.created_at);
+        var dateStr = d.toLocaleDateString('en-IN', { day:'2-digit', month:'short', year:'numeric' });
+        var total = r.total_price > 0 ? (r.order_type === 'INTERNATIONAL' ? '$' : '₹') + Number(r.total_price).toLocaleString('en-IN') : '—';
+        html += '<tr style="border-bottom:1px solid var(--border);">' +
+          '<td style="padding:8px 12px;color:var(--text);">' + (r.customer_name || '—') + '</td>' +
+          '<td style="padding:8px 12px;color:var(--muted);">' + (r.series || '—') + '</td>' +
+          '<td style="padding:8px 12px;color:var(--muted);">' + (r.proforma_no || '—') + '</td>' +
+          '<td style="padding:8px 12px;text-align:right;color:var(--text);font-weight:500;">' + total + '</td>' +
+          '<td style="padding:8px 12px;text-align:right;color:var(--muted);">' + dateStr + '</td></tr>';
+      });
+      html += '</table>';
+      el.innerHTML = html;
+    })
+    .catch(function() {
+      el.innerHTML = '<div style="padding:24px;text-align:center;font-size:12px;color:var(--muted)">Could not load history</div>';
+    });
+}
+offerLoadHistory();
 
 // ====== SETTINGS ======
 const SETTINGS_DASHBOARD_ID = GAP_DASHBOARD_ID;

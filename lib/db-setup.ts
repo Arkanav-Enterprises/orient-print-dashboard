@@ -54,6 +54,20 @@ export async function setupTables() {
     )
   `;
 
+  await sql`
+    CREATE TABLE IF NOT EXISTS offers (
+      id SERIAL PRIMARY KEY,
+      dashboard_id INTEGER NOT NULL,
+      customer_name TEXT DEFAULT '',
+      series TEXT DEFAULT '',
+      proforma_no TEXT DEFAULT '',
+      order_type TEXT DEFAULT 'DOMESTIC',
+      total_price NUMERIC DEFAULT 0,
+      filename TEXT DEFAULT '',
+      created_at TIMESTAMPTZ DEFAULT NOW()
+    )
+  `;
+
   // No FK — dashboard_id 0 is reserved for the static Printers Houst dashboard
   await sql`
     CREATE TABLE IF NOT EXISTS gap_resolutions (
