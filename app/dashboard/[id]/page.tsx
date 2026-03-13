@@ -1,7 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import sql from "@/lib/db";
-import { DashboardSettings } from "./settings";
 
 export const dynamic = "force-dynamic";
 
@@ -15,7 +14,7 @@ export default async function DashboardViewPage({
   if (isNaN(numericId)) notFound();
 
   const [row] = await sql`
-    SELECT id, company_name, company_short, created_at
+    SELECT id, company_name, company_short
     FROM dashboards WHERE id = ${numericId}
   `;
   if (!row) notFound();
@@ -30,21 +29,13 @@ export default async function DashboardViewPage({
         </Link>
         <span className="text-neutral-700">/</span>
         <span className="text-sm text-white font-medium">{name}</span>
-        <div className="ml-auto flex items-center gap-2">
-          <a
-            href={`/api/dashboards/${numericId}/html`}
-            download={`${name.replace(/\s+/g, "_")}_Dashboard.html`}
-            className="text-xs text-neutral-500 hover:text-neutral-300 border border-neutral-800 rounded px-3 py-1.5 transition-colors"
-          >
-            Download .html
-          </a>
-          <DashboardSettings
-            id={numericId}
-            companyName={row.company_name}
-            companyShort={row.company_short || ""}
-            createdAt={row.created_at}
-          />
-        </div>
+        <a
+          href={`/api/dashboards/${numericId}/html`}
+          download={`${name.replace(/\s+/g, "_")}_Dashboard.html`}
+          className="ml-auto text-xs text-neutral-500 hover:text-neutral-300 border border-neutral-800 rounded px-3 py-1.5 transition-colors"
+        >
+          Download .html
+        </a>
       </div>
       <iframe
         src={`/api/dashboards/${numericId}/html`}

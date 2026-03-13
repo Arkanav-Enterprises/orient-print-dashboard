@@ -18,7 +18,14 @@ export async function GET(
     if (!row || !row.html) {
       return new NextResponse("Dashboard not found", { status: 404 });
     }
-    return new NextResponse(row.html, {
+
+    // Inject the real dashboard ID so settings/gap-resolutions work
+    const html = row.html.replace(
+      "const GAP_DASHBOARD_ID = 0;",
+      `const GAP_DASHBOARD_ID = ${numericId};`
+    );
+
+    return new NextResponse(html, {
       headers: {
         "Content-Type": "text/html; charset=utf-8",
         "Cache-Control": "private, max-age=60",

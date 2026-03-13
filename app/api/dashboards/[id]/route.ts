@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import sql from "@/lib/db";
+import { generateDashboardHTML } from "@/lib/dashboard-template";
 
 function parseId(id: string): number | null {
   const n = parseInt(id, 10);
@@ -92,6 +93,35 @@ export async function DELETE(
     `;
     if (!row) return NextResponse.json({ error: "Not found" }, { status: 404 });
     return NextResponse.json({ ok: true });
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : "Unknown error";
+    return NextResponse.json({ error: msg }, { status: 500 });
+  }
+}
+
+// Regenerate HTML from stored data
+export async function POST(
+  _request: Request,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    const numericId = parseId((await params).id);
+    if (!numericId) return NextResponse.json({ error: "Invalid ID" }, { status: 400 });
+
+    const [row] = await sql`
+      SELECT data FROM dashboards WHERE id = ${numericId}
+    `;
+    if (!row || !row.data) return NextResponse.json({ error: "Not found or no data" }, { status: 404 });
+
+    const data = typeof row.data === "string" ? JSON.parse(row.data) : row.data;
+    const html = generateDashboardHTML(data);
+
+    await sql`
+      UPDATE dashboards SET html = ${html}, updated_at = NOW()
+      WHERE id = ${numericId}
+    `;
+
+    return NextResponse.json({ ok: true, id: numericId });
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : "Unknown error";
     return NextResponse.json({ error: msg }, { status: 500 });

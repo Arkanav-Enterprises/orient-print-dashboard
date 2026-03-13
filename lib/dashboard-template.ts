@@ -431,6 +431,11 @@ export function generateDashboardHTML(data: DashboardData): string {
         Skill Creator
         <span class="nav-badge">${skillCreatorSeeds.length}</span>
       </div>
+      <div class="nav-section-label">Manage</div>
+      <div class="nav-item" onclick="navigate('settings')">
+        <span class="nav-icon"><svg width="16" height="16" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="2" stroke="currentColor" stroke-width="1.5"/><path d="M13.5 8a5.5 5.5 0 01-.3 1.8l1.3.8-.9 1.5-1.4-.5a5.5 5.5 0 01-1.5 1l.2 1.5H9.1l.2-1.5a5.5 5.5 0 01-1.5-1l-1.4.5-.9-1.5 1.3-.8A5.5 5.5 0 016.5 8c0-.6.1-1.2.3-1.8L5.5 5.4l.9-1.5 1.4.5a5.5 5.5 0 011.5-1L9.1 1.9h1.8l-.2 1.5a5.5 5.5 0 011.5 1l1.4-.5.9 1.5-1.3.8c.2.6.3 1.2.3 1.8z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/></svg></span>
+        Settings
+      </div>
     </div>
     <div class="sidebar-footer">AI Integration Rollout<br>Generated Dashboard</div>
   </nav>
@@ -679,6 +684,54 @@ export function generateDashboardHTML(data: DashboardData): string {
         </div>
       </div>
 
+      <!-- SETTINGS -->
+      <div id="settings" class="page">
+        <div class="page-header">
+          <div class="page-title">Settings</div>
+          <div class="page-desc">Manage this dashboard — rename, export, or delete.</div>
+        </div>
+        <div style="max-width:560px;display:flex;flex-direction:column;gap:24px;">
+          <div style="background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius);padding:20px;">
+            <h3 style="font-size:13px;font-weight:600;color:var(--text);margin:0 0 16px;">General</h3>
+            <div style="margin-bottom:12px;">
+              <label style="display:block;font-size:11px;color:var(--muted);margin-bottom:4px;">Company Name</label>
+              <input id="settingsName" style="width:100%;padding:8px 12px;background:var(--bg);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:13px;outline:none;" />
+            </div>
+            <div style="margin-bottom:16px;">
+              <label style="display:block;font-size:11px;color:var(--muted);margin-bottom:4px;">Short Name</label>
+              <input id="settingsShort" style="width:100%;padding:8px 12px;background:var(--bg);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:13px;outline:none;" />
+            </div>
+            <button id="settingsSaveBtn" onclick="settingsSave()" style="display:none;padding:8px 16px;background:var(--text);color:var(--bg);border:none;border-radius:8px;font-size:12px;font-weight:600;cursor:pointer;">Save Changes</button>
+            <span id="settingsSaveMsg" style="display:none;font-size:12px;color:var(--green);margin-left:8px;">Saved!</span>
+          </div>
+          <div style="background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius);padding:20px;">
+            <h3 style="font-size:13px;font-weight:600;color:var(--text);margin:0 0 8px;">Info</h3>
+            <div style="font-size:12px;color:var(--muted);line-height:1.8;">
+              <div>Dashboard ID: <span style="color:var(--text);" id="settingsId"></span></div>
+              <div>Created: <span style="color:var(--text);" id="settingsCreated"></span></div>
+            </div>
+          </div>
+          <div style="background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius);padding:20px;">
+            <h3 style="font-size:13px;font-weight:600;color:var(--text);margin:0 0 12px;">Export</h3>
+            <a id="settingsDownload" style="display:inline-flex;align-items:center;gap:6px;padding:8px 14px;border:1px solid var(--border);border-radius:8px;color:var(--muted);font-size:12px;text-decoration:none;cursor:pointer;transition:color .2s;" onmouseover="this.style.color='var(--text)'" onmouseout="this.style.color='var(--muted)'" download>
+              <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M7 2v8M4 7l3 3 3-3"/><path d="M2 11h10"/></svg>
+              Download as .html
+            </a>
+          </div>
+          <div style="background:var(--bg-card);border:1px solid rgba(220,38,38,0.2);border-radius:var(--radius);padding:20px;">
+            <h3 style="font-size:13px;font-weight:600;color:#ef4444;margin:0 0 12px;">Danger Zone</h3>
+            <button id="settingsDeleteBtn" onclick="settingsConfirmDelete()" style="padding:8px 14px;background:transparent;border:1px solid rgba(220,38,38,0.3);border-radius:8px;color:#ef4444;font-size:12px;cursor:pointer;transition:background .2s;">Delete Dashboard</button>
+            <div id="settingsDeleteConfirm" style="display:none;margin-top:12px;padding:12px;background:rgba(220,38,38,0.08);border:1px solid rgba(220,38,38,0.2);border-radius:8px;">
+              <p style="font-size:12px;color:#fca5a5;margin:0 0 12px;">This will permanently delete this dashboard and all associated data. This cannot be undone.</p>
+              <div style="display:flex;gap:8px;">
+                <button onclick="settingsDelete()" style="padding:8px 14px;background:#dc2626;border:none;border-radius:8px;color:white;font-size:12px;font-weight:600;cursor:pointer;">Yes, Delete</button>
+                <button onclick="document.getElementById('settingsDeleteConfirm').style.display='none'" style="padding:8px 14px;background:transparent;border:none;color:var(--muted);font-size:12px;cursor:pointer;">Cancel</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
     </div>
   </div>
 </div>
@@ -691,7 +744,7 @@ function navigate(id) {
   document.getElementById(id).classList.add('active');
   event.currentTarget.classList.add('active');
   currentPage = id;
-  const names = { overview:'Overview', departments:'Departments', skills:'Skill Mapping', projects:'Projects', kanban:'Roadmap Board', gaps:'Gaps & Risks', skillcreator:'Skill Creator' };
+  const names = { overview:'Overview', departments:'Departments', skills:'Skill Mapping', projects:'Projects', kanban:'Roadmap Board', gaps:'Gaps & Risks', skillcreator:'Skill Creator', settings:'Settings' };
   document.getElementById('breadcrumb').textContent = names[id] || id;
   document.getElementById('searchInput').value = '';
   document.getElementById('searchResults').classList.remove('visible');
@@ -1388,6 +1441,81 @@ scRenderList();
 // Init gap resolutions (after scSkills is available)
 loadGapResolutions();
 renderAllGaps();
+
+// ====== SETTINGS ======
+const SETTINGS_DASHBOARD_ID = GAP_DASHBOARD_ID;
+var settingsOrigName = '${data.companyName.replace(/'/g, "\\'")}';
+var settingsOrigShort = '${(data.companyShort || '').replace(/'/g, "\\'")}';
+
+function settingsInit() {
+  document.getElementById('settingsName').value = settingsOrigName;
+  document.getElementById('settingsShort').value = settingsOrigShort;
+  document.getElementById('settingsId').textContent = SETTINGS_DASHBOARD_ID;
+
+  // Fetch fresh metadata
+  if (SETTINGS_DASHBOARD_ID > 0) {
+    fetch('/api/dashboards/' + SETTINGS_DASHBOARD_ID)
+      .then(r => r.ok ? r.json() : null)
+      .then(d => {
+        if (!d) return;
+        settingsOrigName = d.company_name;
+        settingsOrigShort = d.company_short || '';
+        document.getElementById('settingsName').value = settingsOrigName;
+        document.getElementById('settingsShort').value = settingsOrigShort;
+        document.getElementById('settingsCreated').textContent = new Date(d.created_at).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
+        document.getElementById('settingsDownload').href = '/api/dashboards/' + SETTINGS_DASHBOARD_ID + '/html';
+      }).catch(() => {});
+  }
+
+  // Show save button on change
+  ['settingsName', 'settingsShort'].forEach(id => {
+    document.getElementById(id).addEventListener('input', function() {
+      const changed = document.getElementById('settingsName').value !== settingsOrigName || document.getElementById('settingsShort').value !== settingsOrigShort;
+      document.getElementById('settingsSaveBtn').style.display = changed ? 'inline-block' : 'none';
+      document.getElementById('settingsSaveMsg').style.display = 'none';
+    });
+  });
+}
+
+function settingsSave() {
+  const name = document.getElementById('settingsName').value.trim();
+  const short = document.getElementById('settingsShort').value.trim();
+  if (!name) { alert('Company name is required'); return; }
+  if (SETTINGS_DASHBOARD_ID <= 0) { alert('Cannot rename static dashboard'); return; }
+
+  document.getElementById('settingsSaveBtn').textContent = 'Saving...';
+  fetch('/api/dashboards/' + SETTINGS_DASHBOARD_ID, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ companyName: name, companyShort: short })
+  }).then(r => r.json()).then(d => {
+    if (d.error) { alert(d.error); return; }
+    settingsOrigName = name;
+    settingsOrigShort = short;
+    document.getElementById('settingsSaveBtn').style.display = 'none';
+    document.getElementById('settingsSaveBtn').textContent = 'Save Changes';
+    document.getElementById('settingsSaveMsg').style.display = 'inline';
+    // Update sidebar company name
+    var sn = document.querySelector('.sidebar-company');
+    if (sn) sn.textContent = short || name;
+    setTimeout(() => { document.getElementById('settingsSaveMsg').style.display = 'none'; }, 2000);
+  }).catch(() => alert('Failed to save'));
+}
+
+function settingsConfirmDelete() {
+  document.getElementById('settingsDeleteConfirm').style.display = 'block';
+}
+
+function settingsDelete() {
+  if (SETTINGS_DASHBOARD_ID <= 0) { alert('Cannot delete static dashboard'); return; }
+  fetch('/api/dashboards/' + SETTINGS_DASHBOARD_ID, { method: 'DELETE' })
+    .then(r => r.json()).then(d => {
+      if (d.ok) window.top.location.href = '/';
+      else alert(d.error || 'Failed to delete');
+    }).catch(() => alert('Failed to delete'));
+}
+
+settingsInit();
 </script>
 </body>
 </html>`;
