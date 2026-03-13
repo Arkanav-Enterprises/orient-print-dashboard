@@ -104,6 +104,29 @@ export function parseClaudeOutput(text: string): OfferData {
     currency: "INR",
   };
 
+  const hasSections = /SECTION\s*[AB]/i.test(text);
+
+  if (hasSections) {
+    parseSectioned(text, data);
+  } else {
+    parseDirectFormat(text, data);
+  }
+
+  data.currency = data.order_type.toUpperCase().includes("INTERNATIONAL") ? "USD" : "INR";
+
+  // These patterns work for both formats
+  const installMatch = text.match(/(Installation\s*:\s*By\s+Factory[\s\S]*?Engineers\.)/i);
+  if (installMatch) data.installation_terms = installMatch[1].replace(/\s+/g, " ").trim();
+
+  const svcMatch = text.match(/(We\s+commit\s+to\s+providing\s+exceptional\s+service[\s\S]*?cost\.)/i);
+  if (svcMatch) data.service_commitment = svcMatch[1].replace(/\s+/g, " ").trim();
+
+  return data;
+}
+
+// ── Format 1: Claude Enterprise structured output with SECTION markers ──
+
+function parseSectioned(text: string, data: OfferData) {
   // Section A: Cover
   const coverRe = /SECTION\s*A[\s\S]*?```\s*([\s\S]*?)```/i;
   const coverBlock = text.match(coverRe);
@@ -120,7 +143,6 @@ export function parseClaudeOutput(text: string): OfferData {
     data.customer_address = m("CUSTOMER_ADDRESS") || data.customer_address;
     data.order_type = m("ORDER_TYPE") || data.order_type;
   } else {
-    // Fallback: try without code fences
     const m = (k: string) => {
       const r = text.match(new RegExp(`${k}\\s*:\\s*(.+)`, "i"));
       return r ? r[1].trim() : "";
@@ -132,12 +154,12 @@ export function parseClaudeOutput(text: string): OfferData {
     data.customer_address = m("CUSTOMER_ADDRESS") || data.customer_address;
     data.order_type = m("ORDER_TYPE") || data.order_type;
   }
-  data.currency = data.order_type.toUpperCase().includes("INTERNATIONAL") ? "USD" : "INR";
 
-  // Section B: Machine Spec
+  // Machine description
   const descMatch = text.match(/MACHINE_DESCRIPTION\s*:\s*"?([^"\n]+)"?/i);
   if (descMatch) data.machine_description = descMatch[1].trim();
 
+  // Section B: Specs (pipe-delimited table)
   const sectionB = text.match(/SECTION\s*B[\s\S]*?(?=SECTION\s*C|$)/i);
   if (sectionB) {
     const rows = [...sectionB[0].matchAll(/\|\s*([^|]+?)\s*\|\s*([^|]+?)\s*\|/g)];
@@ -146,16 +168,12 @@ export function parseClaudeOutput(text: string): OfferData {
       if (n.toLowerCase() === "component" || n.match(/^-+$/)) continue;
       data.specifications.push({
         name: n,
-        details: details
-          .trim()
-          .split(";")
-          .map((d: string) => d.trim())
-          .filter(Boolean),
+        details: details.trim().split(";").map((d: string) => d.trim()).filter(Boolean),
       });
     }
   }
 
-  // Section C: Pricing
+  // Section C: Pricing (pipe-delimited table)
   const sectionC = text.match(/SECTION\s*C[\s\S]*?(?=SECTION\s*D|$)/i);
   if (sectionC) {
     const c = sectionC[0];
@@ -177,27 +195,137 @@ export function parseClaudeOutput(text: string): OfferData {
     const noteMatch = c.match(/Pricing\s*Note\s*:\s*\*{0,2}\s*(.*?)\s*\*{0,2}\s*(?:\n|$)/i);
     if (noteMatch) data.pricing_note = noteMatch[1].trim().replace(/^\*/, "").trim();
 
-    // Ink pricing
-    const inkPatterns: [RegExp, string][] = [
-      [/Uncoated\s+Media\s+per\s+ltr\s+for\s+Black\s*:?\s*([₹$]\s*[\d,]+)/i, "Uncoated Media per ltr for Black"],
-      [/Uncoated\s+Media\s+per\s+ltr\s+for\s+Cyan.*?Yellow\s*:?\s*([₹$]\s*[\d,]+)/i, "Uncoated Media per ltr for Cyan, Magenta, Yellow"],
-      [/Coated\s+Media\s+HD\s+Ink\s+per\s+ltr\s*:?\s*([₹$]\s*[\d,]+)/i, "Coated Media HD Ink per ltr"],
-    ];
-    for (const [pat, desc] of inkPatterns) {
-      const match = c.match(pat);
-      if (match) data.ink_prices.push({ description: desc, price: parseAmount(match[1]) });
-    }
+    // Ink pricing from Section C
+    parseInkPrices(c, data);
+  }
+}
 
-    // Installation terms
-    const installMatch = c.match(new RegExp("(Installation\\s*:\\s*By\\s+Factory.*?Engineers\\.)", "is"));
-    if (installMatch) data.installation_terms = installMatch[1].trim();
+// ── Format 2: Direct DOCX offer (no SECTION markers) ──
+
+function parseDirectFormat(text: string, data: OfferData) {
+  // Series detection from title line
+  if (/L\s*&\s*P/i.test(text)) data.series = "L&P SERIES";
+  else if (/C.?Series/i.test(text)) data.series = "C SERIES";
+
+  // Cover fields — DOCX extracts as "Key:\nValue" on separate lines
+  const nlVal = (key: string): string => {
+    // Match "Key:\nValue" or "Key: Value"
+    const re = new RegExp(`(?:^|\\n)\\s*${key}\\s*:\\s*\\n?\\s*(.+)`, "im");
+    const m = text.match(re);
+    return m ? m[1].trim() : "";
+  };
+  data.date = nlVal("Date") || data.date;
+  data.proforma_no = nlVal("Proforma(?:\\s+Invoice)?\\s*(?:No\\.?)?") || nlVal("Proforma No") || data.proforma_no;
+  data.customer_name = nlVal("Customer") || data.customer_name;
+  data.customer_address = nlVal("Address") || data.customer_address;
+  data.order_type = nlVal("Order\\s*Type") || data.order_type;
+
+  // Machine description — line after "MACHINE SPECIFICATION"
+  const specSection = text.match(/MACHINE\s+SPECIFICATION\s*\n+\s*(.+)/i);
+  if (specSection) data.machine_description = specSection[1].trim();
+
+  // Specifications — block between MACHINE SPECIFICATION and EQUIPMENT PRICING
+  const specBlock = text.match(/MACHINE\s+SPECIFICATION[\s\S]*?(?=EQUIPMENT\s+PRICING|$)/i);
+  if (specBlock) {
+    parseSpecsFromPlainText(specBlock[0], data);
   }
 
-  // Service commitment
-  const svcMatch = text.match(new RegExp("(We\\s+commit\\s+to\\s+providing\\s+exceptional\\s+service.*?cost\\.)", "is"));
-  if (svcMatch) data.service_commitment = svcMatch[1].trim();
+  // Pricing — block between EQUIPMENT PRICING and INK PRICING (or INSTALLATION TERMS heading)
+  const pricingBlock = text.match(/EQUIPMENT\s+PRICING[\s\S]*?(?=INK\s+PRICING|INSTALLATION\s+TERMS|GENERAL\s+TERMS|$)/i);
+  if (pricingBlock) {
+    parsePricingFromPlainText(pricingBlock[0], data);
+  }
 
-  return data;
+  // Pricing note — line starting with * after TOTAL
+  const noteMatch = text.match(/TOTAL\s+OFFER\s+PRICE[\s\S]*?\n\s*(\*[^\n]+)/i);
+  if (noteMatch) data.pricing_note = noteMatch[1].trim();
+
+  // Ink pricing
+  parseInkPrices(text, data);
+}
+
+/** Parse specs from plain text (DOCX format: Component names in ALL CAPS followed by detail lines) */
+function parseSpecsFromPlainText(block: string, data: OfferData) {
+  const lines = block.split("\n").map(l => l.trim()).filter(Boolean);
+  // Skip header lines
+  const startIdx = lines.findIndex(l => /^Component$/i.test(l));
+  const detailsIdx = lines.findIndex((l, i) => i > startIdx && /^Details$/i.test(l));
+  const begin = detailsIdx >= 0 ? detailsIdx + 1 : (startIdx >= 0 ? startIdx + 1 : 2);
+
+  // Known component names that mark spec boundaries
+  const COMPONENT_NAMES = [
+    "PRINT HEAD", "ELECTRONIC", "WEB TRANSPORT", "UNWINDER",
+    "INK DELIVERY SYSTEM", "RIP + SERVER", "RIP", "COATING", "COATING + DRYING",
+    "SHEETER", "REWIND UNIT", "INLINE", "FINISHING",
+  ];
+
+  function isComponentName(line: string): boolean {
+    const upper = line.toUpperCase();
+    return COMPONENT_NAMES.some(c => upper.startsWith(c));
+  }
+
+  let currentSpec: Specification | null = null;
+  for (let i = begin; i < lines.length; i++) {
+    const line = lines[i];
+    if (isComponentName(line)) {
+      if (currentSpec) data.specifications.push(currentSpec);
+      currentSpec = { name: line, details: [] };
+    } else if (currentSpec) {
+      currentSpec.details.push(line);
+    }
+  }
+  if (currentSpec) data.specifications.push(currentSpec);
+}
+
+/** Parse pricing from plain text (DOCX format: groups of sr/desc/qty/amount on separate lines) */
+function parsePricingFromPlainText(block: string, data: OfferData) {
+  const lines = block.split("\n").map(l => l.trim()).filter(Boolean);
+
+  // Find TOTAL line first
+  for (let i = 0; i < lines.length; i++) {
+    if (/TOTAL\s+OFFER\s+PRICE/i.test(lines[i])) {
+      // Amount is on the next non-empty line (or same line)
+      const amtLine = lines[i + 1] || lines[i];
+      const amt = amtLine.match(/[₹$]\s*[\d,]+/);
+      if (amt) data.total_price = parseAmount(amt[0]);
+      break;
+    }
+  }
+
+  // Parse line items: look for lines with ₹/$ amounts and the description preceding them
+  // Pattern: number line, description line, qty line, amount line
+  const amountRe = /^[₹$]\s*[\d,]+/;
+  for (let i = 0; i < lines.length; i++) {
+    if (amountRe.test(lines[i]) && !/TOTAL/i.test(lines[i - 2] || "") && !/TOTAL/i.test(lines[i - 1] || "")) {
+      const price = parseAmount(lines[i]);
+      // Walk backwards to find the description (skip qty and sr number)
+      let desc = "";
+      for (let j = i - 1; j >= Math.max(0, i - 3); j--) {
+        const l = lines[j];
+        if (!l.match(/^\d+$/) && !amountRe.test(l) && !l.match(/^(Sr|Particulars|Qty|Amount)/i)) {
+          desc = l;
+          break;
+        }
+      }
+      if (desc && price > 0) {
+        data.pricing_items.push({ description: desc, price });
+      }
+    }
+  }
+}
+
+/** Parse ink prices from text (works for both formats) */
+function parseInkPrices(text: string, data: OfferData) {
+  if (data.ink_prices.length > 0) return;
+  const inkPatterns: [RegExp, string][] = [
+    [/Uncoated\s+Media[\s\S]*?Black(?:\s+Ink)?\s*(?:per\s+(?:ltr|Litre))?\s*:?\s*([₹$]\s*[\d,]+)/i, "Uncoated Media per ltr for Black"],
+    [/Uncoated\s+Media[\s\S]*?(?:Cyan|CMY)[\s\S]*?(?:Yellow)?\s*(?:per\s+(?:ltr|Litre))?\s*:?\s*([₹$]\s*[\d,]+)/i, "Uncoated Media per ltr for Cyan, Magenta, Yellow"],
+    [/Coated\s+Media\s+HD\s+Ink\s*(?:per\s+(?:ltr|Litre))?\s*:?\s*([₹$]\s*[\d,]+)/i, "Coated Media HD Ink per ltr"],
+  ];
+  for (const [pat, desc] of inkPatterns) {
+    const match = text.match(pat);
+    if (match) data.ink_prices.push({ description: desc, price: parseAmount(match[1]) });
+  }
 }
 
 // ── PDF builder ─────────────────────────────────────────────────────
