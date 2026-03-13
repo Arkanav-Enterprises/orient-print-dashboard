@@ -732,6 +732,22 @@ export function generateDashboardHTML(data: DashboardData): string {
             </div>
           </div>
         </div>
+        <!-- PDF Preview Modal -->
+        <div id="pdfPreviewModal" style="display:none;position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,0.7);backdrop-filter:blur(4px);" onclick="if(event.target===this)closePdfPreview()">
+          <div style="position:absolute;inset:24px;display:flex;flex-direction:column;background:var(--bg-card);border:1px solid var(--border);border-radius:12px;overflow:hidden;">
+            <div style="display:flex;align-items:center;justify-content:space-between;padding:12px 16px;border-bottom:1px solid var(--border);">
+              <span id="pdfPreviewTitle" style="font-size:13px;font-weight:600;color:var(--text);"></span>
+              <div style="display:flex;gap:8px;align-items:center;">
+                <a id="pdfPreviewDownload" download style="display:inline-flex;align-items:center;gap:4px;padding:6px 12px;background:var(--green);color:#000;border-radius:6px;font-size:11px;font-weight:600;text-decoration:none;">
+                  <svg width="12" height="12" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M7 2v8M4 7l3 3 3-3"/><path d="M2 11h10"/></svg>
+                  Download
+                </a>
+                <button onclick="closePdfPreview()" style="background:none;border:1px solid var(--border);border-radius:6px;color:var(--muted);cursor:pointer;padding:6px 10px;font-size:11px;">Close</button>
+              </div>
+            </div>
+            <iframe id="pdfPreviewFrame" style="flex:1;border:none;background:#525659;"></iframe>
+          </div>
+        </div>
       </div>
 
       <!-- SETTINGS -->
@@ -1568,6 +1584,14 @@ function offerGenerate() {
       document.getElementById('offerDownloadName').textContent = result.meta.filename;
       document.getElementById('offerDownload').style.display = 'block';
 
+      // Show instant preview of generated PDF
+      document.getElementById('pdfPreviewFrame').src = url;
+      document.getElementById('pdfPreviewTitle').textContent = result.meta.filename;
+      var pdl = document.getElementById('pdfPreviewDownload');
+      pdl.href = url; pdl.download = result.meta.filename;
+      document.getElementById('pdfPreviewModal').style.display = 'block';
+      document.body.style.overflow = 'hidden';
+
       // Save to offers table (include PDF as base64)
       if (OFFER_DASHBOARD_ID > 0) {
         var reader = new FileReader();
@@ -1633,10 +1657,12 @@ function offerLoadHistory() {
         var total = r.total_price > 0 ? (r.order_type === 'INTERNATIONAL' ? '$' : '\u20B9') + Number(r.total_price).toLocaleString('en-IN') : '\u2014';
         var actions = '';
         if (r.has_pdf) {
-          actions += '<a href="/api/offers/' + r.id + '/pdf" title="Download PDF" style="color:var(--blue);text-decoration:none;margin-right:8px;font-size:14px;cursor:pointer;">\\u2913</a>';
+          actions += '<span onclick="event.stopPropagation();offerPreview(' + r.id + ',\\'' + (r.filename || '').replace(/'/g, '') + '\\')" title="Preview PDF" style="color:var(--blue);cursor:pointer;margin-right:8px;font-size:14px;">\\u25B6</span>';
+          actions += '<a href="/api/offers/' + r.id + '/pdf" onclick="event.stopPropagation()" title="Download PDF" style="color:var(--blue);text-decoration:none;margin-right:8px;font-size:14px;cursor:pointer;">\\u2913</a>';
         }
-        actions += '<span onclick="offerDelete(' + r.id + ')" title="Delete" style="color:var(--muted);cursor:pointer;font-size:14px;opacity:0.6;transition:opacity 0.2s;" onmouseover="this.style.opacity=1;this.style.color=\\'#ef4444\\'" onmouseout="this.style.opacity=0.6;this.style.color=\\'var(--muted)\\'">\\u2715</span>';
-        html += '<tr style="border-bottom:1px solid var(--border);">' +
+        actions += '<span onclick="event.stopPropagation();offerDelete(' + r.id + ')" title="Delete" style="color:var(--muted);cursor:pointer;font-size:14px;opacity:0.6;transition:opacity 0.2s;" onmouseover="this.style.opacity=1;this.style.color=\\'#ef4444\\'" onmouseout="this.style.opacity=0.6;this.style.color=\\'var(--muted)\\'">\\u2715</span>';
+        var rowClick = r.has_pdf ? ' onclick="offerPreview(' + r.id + ',\\'' + (r.filename || '').replace(/'/g, '') + '\\')" style="border-bottom:1px solid var(--border);cursor:pointer;transition:background 0.15s;" onmouseover="this.style.background=\\'rgba(255,255,255,0.03)\\'" onmouseout="this.style.background=\\'\\'"' : ' style="border-bottom:1px solid var(--border);"';
+        html += '<tr' + rowClick + '>' +
           '<td style="padding:8px 12px;color:var(--text);">' + (r.customer_name || '\u2014') + '</td>' +
           '<td style="padding:8px 12px;color:var(--muted);">' + (r.series || '\u2014') + '</td>' +
           '<td style="padding:8px 12px;color:var(--muted);">' + (r.proforma_no || '\u2014') + '</td>' +
@@ -1652,6 +1678,23 @@ function offerLoadHistory() {
     });
 }
 offerLoadHistory();
+
+function offerPreview(id, filename) {
+  var url = '/api/offers/' + id + '/pdf';
+  document.getElementById('pdfPreviewFrame').src = url;
+  document.getElementById('pdfPreviewTitle').textContent = filename || 'Offer Preview';
+  var dl = document.getElementById('pdfPreviewDownload');
+  dl.href = url;
+  dl.download = filename || 'Offer.pdf';
+  document.getElementById('pdfPreviewModal').style.display = 'block';
+  document.body.style.overflow = 'hidden';
+}
+
+function closePdfPreview() {
+  document.getElementById('pdfPreviewModal').style.display = 'none';
+  document.getElementById('pdfPreviewFrame').src = '';
+  document.body.style.overflow = '';
+}
 
 function offerDelete(id) {
   if (!confirm('Delete this offer?')) return;
