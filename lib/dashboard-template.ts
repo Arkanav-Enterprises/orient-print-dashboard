@@ -515,7 +515,7 @@ export function generateDashboardHTML(data: DashboardData): string {
       </div>
       <div class="nav-section-label">Manage</div>
       <div class="nav-item" onclick="navigate('settings')">
-        <span class="nav-icon"><svg width="16" height="16" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="2" stroke="currentColor" stroke-width="1.5"/><path d="M13.5 8a5.5 5.5 0 01-.3 1.8l1.3.8-.9 1.5-1.4-.5a5.5 5.5 0 01-1.5 1l.2 1.5H9.1l.2-1.5a5.5 5.5 0 01-1.5-1l-1.4.5-.9-1.5 1.3-.8A5.5 5.5 0 016.5 8c0-.6.1-1.2.3-1.8L5.5 5.4l.9-1.5 1.4.5a5.5 5.5 0 011.5-1L9.1 1.9h1.8l-.2 1.5a5.5 5.5 0 011.5 1l1.4-.5.9 1.5-1.3.8c.2.6.3 1.2.3 1.8z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/></svg></span>
+        <span class="nav-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 01-2.83 2.83l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg></span>
         Settings
       </div>
     </div>
