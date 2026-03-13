@@ -695,30 +695,40 @@ export function generateDashboardHTML(data: DashboardData): string {
           <div class="page-title">Offer Generator</div>
           <div class="page-desc">Upload the Sections A–E output from the Claude Enterprise Pricing Project to generate a branded 8-page offer DOCX.</div>
         </div>
+        <style>
+          @keyframes offerSpin { to { transform: rotate(360deg); } }
+          .offer-spinner { display:inline-block;width:16px;height:16px;border:2px solid rgba(255,255,255,0.3);border-top-color:#fff;border-radius:50%;animation:offerSpin 0.6s linear infinite;vertical-align:middle;margin-right:8px; }
+        </style>
         <div style="display:flex;gap:24px;flex-wrap:wrap;">
           <!-- Upload + Generate -->
           <div style="flex:1;min-width:320px;max-width:480px;display:flex;flex-direction:column;gap:16px;">
             <div id="offerDropzone" style="border:2px dashed var(--border);border-radius:var(--radius);padding:32px;text-align:center;cursor:pointer;transition:border-color 0.2s,background 0.2s;" onclick="document.getElementById('offerFileInput').click()">
               <input type="file" id="offerFileInput" accept=".docx,.txt,.md" style="display:none" onchange="offerFileSelected(this)">
-              <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="var(--muted)" stroke-width="1.5" style="margin:0 auto 8px;display:block;opacity:0.5"><path d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"/></svg>
-              <div style="font-size:13px;font-weight:500;color:var(--text)">Drop a .docx file here or click to upload</div>
-              <div style="font-size:11px;color:var(--muted);margin-top:4px">.docx (from Claude artifact) or .txt</div>
-              <div id="offerFileName" style="font-size:11px;color:var(--blue);margin-top:8px;display:none"></div>
+              <div id="offerDropIdle">
+                <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="var(--muted)" stroke-width="1.5" style="margin:0 auto 8px;display:block;opacity:0.5"><path d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"/></svg>
+                <div style="font-size:13px;font-weight:500;color:var(--text)">Drop a .docx file here or click to upload</div>
+                <div style="font-size:11px;color:var(--muted);margin-top:4px">.docx (from Claude artifact) or .txt</div>
+              </div>
+              <div id="offerDropProcessing" style="display:none">
+                <div style="margin:0 auto 8px;"><span class="offer-spinner"></span></div>
+                <div style="font-size:13px;font-weight:500;color:var(--blue)">Generating branded offer...</div>
+                <div id="offerFileName" style="font-size:11px;color:var(--muted);margin-top:4px"></div>
+              </div>
             </div>
-            <div id="offerError" style="background:rgba(220,38,38,0.15);border:1px solid rgba(220,38,38,0.3);border-radius:8px;padding:8px 12px;font-size:12px;color:#fca5a5;display:none"></div>
-            <button id="offerGenBtn" onclick="offerGenerate()" disabled style="background:var(--text);color:var(--bg);font-weight:600;font-size:13px;padding:10px 20px;border:none;border-radius:8px;cursor:pointer;opacity:0.4;transition:opacity 0.2s;">Generate Offer</button>
+            <div id="offerError" style="background:rgba(220,38,38,0.15);border:1px solid rgba(220,38,38,0.3);border-radius:8px;padding:10px 14px;font-size:12px;color:#fca5a5;display:none"></div>
             <div id="offerDownload" style="display:none">
-              <a id="offerDownloadLink" style="display:inline-flex;align-items:center;gap:6px;background:var(--bg-card);border:1px solid var(--border);border-radius:8px;padding:8px 16px;font-size:12px;color:var(--text);text-decoration:none;transition:border-color 0.2s;" download>
+              <a id="offerDownloadLink" style="display:inline-flex;align-items:center;gap:6px;background:var(--green);color:#000;border:none;border-radius:8px;padding:10px 20px;font-size:13px;font-weight:600;text-decoration:none;transition:opacity 0.2s;" download>
                 <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M7 2v8M4 7l3 3 3-3"/><path d="M2 11h10"/></svg>
                 <span id="offerDownloadName">Download</span>
               </a>
+              <button onclick="document.getElementById('offerFileInput').click()" style="margin-left:8px;padding:10px 16px;background:var(--bg-card);color:var(--text);border:1px solid var(--border);border-radius:8px;font-size:12px;cursor:pointer;">Generate Another</button>
             </div>
           </div>
           <!-- History -->
           <div style="flex:2;min-width:320px;">
             <h3 style="font-size:13px;font-weight:600;color:var(--text);margin:0 0 12px;">Recent Offers</h3>
             <div id="offerHistory" style="background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;">
-              <div style="padding:24px;text-align:center;font-size:12px;color:var(--muted)">Loading...</div>
+              <div style="padding:24px;text-align:center;font-size:12px;color:var(--muted)">No offers generated yet</div>
             </div>
           </div>
         </div>
@@ -1495,36 +1505,38 @@ renderAllGaps();
 // ====== OFFER GENERATOR ======
 const OFFER_DASHBOARD_ID = GAP_DASHBOARD_ID;
 var offerFile = null;
+var offerBusy = false;
 
 // Drag and drop
 var dz = document.getElementById('offerDropzone');
 if (dz) {
-  dz.addEventListener('dragover', function(e) { e.preventDefault(); dz.style.borderColor='var(--blue)'; dz.style.background='rgba(59,130,246,0.05)'; });
+  dz.addEventListener('dragover', function(e) { e.preventDefault(); e.stopPropagation(); dz.style.borderColor='var(--blue)'; dz.style.background='rgba(59,130,246,0.05)'; });
   dz.addEventListener('dragleave', function() { dz.style.borderColor='var(--border)'; dz.style.background=''; });
   dz.addEventListener('drop', function(e) {
-    e.preventDefault(); dz.style.borderColor='var(--border)'; dz.style.background='';
-    if (e.dataTransfer.files[0]) offerFileSelected({ files: [e.dataTransfer.files[0]] });
+    e.preventDefault(); e.stopPropagation(); dz.style.borderColor='var(--border)'; dz.style.background='';
+    if (e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0]) offerFileSelected({ files: e.dataTransfer.files });
   });
 }
 
 function offerFileSelected(input) {
   var f = input.files && input.files[0];
-  if (!f) return;
+  if (!f || offerBusy) return;
   offerFile = f;
-  document.getElementById('offerFileName').textContent = f.name;
-  document.getElementById('offerFileName').style.display = 'block';
-  document.getElementById('offerGenBtn').disabled = false;
-  document.getElementById('offerGenBtn').style.opacity = '1';
-  document.getElementById('offerError').style.display = 'none';
-  document.getElementById('offerDownload').style.display = 'none';
-  // Reset file input so re-selecting same file works
   document.getElementById('offerFileInput').value = '';
+  // Auto-generate immediately
+  offerGenerate();
 }
 
 function offerGenerate() {
-  if (!offerFile) return;
-  var btn = document.getElementById('offerGenBtn');
-  btn.textContent = 'Generating...'; btn.disabled = true; btn.style.opacity = '0.4';
+  if (!offerFile || offerBusy) return;
+  offerBusy = true;
+
+  // Show processing state
+  document.getElementById('offerDropIdle').style.display = 'none';
+  document.getElementById('offerDropProcessing').style.display = 'block';
+  document.getElementById('offerFileName').textContent = offerFile.name;
+  document.getElementById('offerDropzone').style.borderColor = 'var(--blue)';
+  document.getElementById('offerDropzone').style.cursor = 'default';
   document.getElementById('offerError').style.display = 'none';
   document.getElementById('offerDownload').style.display = 'none';
 
@@ -1533,8 +1545,12 @@ function offerGenerate() {
 
   fetch('/api/tools/offer-generator', { method: 'POST', body: fd })
     .then(function(res) {
-      if (!res.ok) return res.json().then(function(d) { throw new Error(d.error || 'Generation failed'); });
-      // Extract metadata from headers
+      if (!res.ok) {
+        return res.text().then(function(t) {
+          try { var d = JSON.parse(t); throw new Error(d.error || 'Generation failed'); }
+          catch(e) { if (e.message && e.message !== 'Generation failed') throw e; throw new Error('Server error (' + res.status + '). Check that template assets are deployed.'); }
+        });
+      }
       var meta = {
         customer: res.headers.get('X-Offer-Customer') || '',
         series: res.headers.get('X-Offer-Series') || '',
@@ -1569,23 +1585,35 @@ function offerGenerate() {
         }).then(function() { offerLoadHistory(); }).catch(function() {});
       }
 
-      btn.textContent = 'Generate Offer'; btn.disabled = false; btn.style.opacity = '1';
+      offerResetDropzone();
     })
     .catch(function(err) {
-      document.getElementById('offerError').textContent = err.message;
+      document.getElementById('offerError').textContent = err.message || 'Something went wrong. Please try again.';
       document.getElementById('offerError').style.display = 'block';
-      btn.textContent = 'Generate Offer'; btn.disabled = false; btn.style.opacity = '1';
+      offerResetDropzone();
     });
+}
+
+function offerResetDropzone() {
+  offerBusy = false;
+  offerFile = null;
+  document.getElementById('offerDropIdle').style.display = 'block';
+  document.getElementById('offerDropProcessing').style.display = 'none';
+  document.getElementById('offerDropzone').style.borderColor = 'var(--border)';
+  document.getElementById('offerDropzone').style.cursor = 'pointer';
 }
 
 function offerLoadHistory() {
   var el = document.getElementById('offerHistory');
   if (!el || OFFER_DASHBOARD_ID <= 0) {
-    el.innerHTML = '<div style="padding:24px;text-align:center;font-size:12px;color:var(--muted)">Save a dashboard first to track offer history</div>';
+    if (el) el.innerHTML = '<div style="padding:24px;text-align:center;font-size:12px;color:var(--muted)">Save a dashboard first to track offer history</div>';
     return;
   }
   fetch('/api/offers?dashboardId=' + OFFER_DASHBOARD_ID)
-    .then(function(r) { return r.json(); })
+    .then(function(r) {
+      if (!r.ok) throw new Error('API error');
+      return r.json();
+    })
     .then(function(rows) {
       if (!Array.isArray(rows) || rows.length === 0) {
         el.innerHTML = '<div style="padding:24px;text-align:center;font-size:12px;color:var(--muted)">No offers generated yet</div>';
@@ -1596,11 +1624,11 @@ function offerLoadHistory() {
       rows.forEach(function(r) {
         var d = new Date(r.created_at);
         var dateStr = d.toLocaleDateString('en-IN', { day:'2-digit', month:'short', year:'numeric' });
-        var total = r.total_price > 0 ? (r.order_type === 'INTERNATIONAL' ? '$' : '₹') + Number(r.total_price).toLocaleString('en-IN') : '—';
+        var total = r.total_price > 0 ? (r.order_type === 'INTERNATIONAL' ? '$' : '\u20B9') + Number(r.total_price).toLocaleString('en-IN') : '\u2014';
         html += '<tr style="border-bottom:1px solid var(--border);">' +
-          '<td style="padding:8px 12px;color:var(--text);">' + (r.customer_name || '—') + '</td>' +
-          '<td style="padding:8px 12px;color:var(--muted);">' + (r.series || '—') + '</td>' +
-          '<td style="padding:8px 12px;color:var(--muted);">' + (r.proforma_no || '—') + '</td>' +
+          '<td style="padding:8px 12px;color:var(--text);">' + (r.customer_name || '\u2014') + '</td>' +
+          '<td style="padding:8px 12px;color:var(--muted);">' + (r.series || '\u2014') + '</td>' +
+          '<td style="padding:8px 12px;color:var(--muted);">' + (r.proforma_no || '\u2014') + '</td>' +
           '<td style="padding:8px 12px;text-align:right;color:var(--text);font-weight:500;">' + total + '</td>' +
           '<td style="padding:8px 12px;text-align:right;color:var(--muted);">' + dateStr + '</td></tr>';
       });
@@ -1608,7 +1636,7 @@ function offerLoadHistory() {
       el.innerHTML = html;
     })
     .catch(function() {
-      el.innerHTML = '<div style="padding:24px;text-align:center;font-size:12px;color:var(--muted)">Could not load history</div>';
+      el.innerHTML = '<div style="padding:24px;text-align:center;font-size:12px;color:var(--muted)">No offers generated yet</div>';
     });
 }
 offerLoadHistory();
