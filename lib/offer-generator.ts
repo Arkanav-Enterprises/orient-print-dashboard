@@ -1,31 +1,19 @@
 /**
- * Offer Generator — parse Claude Enterprise structured output and build branded DOCX.
+ * Offer Generator — parse Claude Enterprise structured output and build branded PDF.
  *
- * Ported from Offer_Generator_Project/generate_offer_docx.js for Vercel compatibility.
- * The original CLI script remains for local/Cowork use.
+ * Uses pdf-lib to generate cover + pricing pages, then merges with template
+ * PDF boilerplate pages. Matches the Python generate_branded_offer.py output.
  */
 
 import fs from "fs";
 import path from "path";
-import {
-  Document,
-  Packer,
-  Paragraph,
-  TextRun,
-  ImageRun,
-  AlignmentType,
-  BorderStyle,
-  TabStopType,
-  TabStopPosition,
-  ExternalHyperlink,
-} from "docx";
+import { PDFDocument, rgb, StandardFonts, PDFPage, PDFFont, PDFImage } from "pdf-lib";
 
-// A4 in DXA
-const A4_W = 11906;
-const A4_H = 16838;
+// A4 in points
+const PAGE_W = 595.27;
+const PAGE_H = 841.89;
 
-const ASSETS_DIR = path.join(process.cwd(), "Offer_Generator_Project", "template_assets", "boilerplate_pages");
-const BRAND_DIR = path.join(process.cwd(), "Offer_Generator_Project", "template_assets", "cseries");
+const ASSETS_BASE = path.join(process.cwd(), "Offer_Generator_Project", "template_assets");
 
 // ── Types ──────────────────────────────────────────────────────────
 
@@ -211,9 +199,9 @@ export function parseClaudeOutput(text: string): OfferData {
   return data;
 }
 
-// ── DOCX builder ───────────────────────────────────────────────────
+// ── PDF builder ─────────────────────────────────────────────────────
 
-function tryReadImage(filePath: string): Buffer | null {
+function tryReadFile(filePath: string): Uint8Array | null {
   try {
     return fs.readFileSync(filePath);
   } catch {
@@ -221,373 +209,301 @@ function tryReadImage(filePath: string): Buffer | null {
   }
 }
 
-function buildCoverSection(data: OfferData) {
-  const children = [];
+// Colors as rgb() for pdf-lib
+const RED = rgb(0.831, 0.169, 0.169);    // #D42B2B
+const GREY_DARK = rgb(0.333, 0.333, 0.333); // #555555
+const GREY_MED = rgb(0.467, 0.467, 0.467);  // #777777
+const BLACK = rgb(0, 0, 0);
+const WHITE = rgb(1, 1, 1);
+const LINK_BLUE = rgb(0, 0.4, 0.8);      // #0066CC
+const LIGHT_GREY = rgb(0.867, 0.867, 0.867); // #DDDDDD
+const DOT_GREY = rgb(0.667, 0.667, 0.667);  // #AAAAAA
 
-  children.push(new Paragraph({ spacing: { before: 600 }, children: [] }));
+/** Approximate text width using font metrics (pdf-lib's widthOfTextAtSize) */
+function textWidth(font: PDFFont, text: string, size: number): number {
+  return font.widthOfTextAtSize(text, size);
+}
 
-  children.push(
-    new Paragraph({
-      spacing: { after: 40 },
-      children: [new TextRun({ text: `Date : ${data.date}`, font: "Arial", size: 20, color: "333333" })],
-    })
-  );
-  children.push(
-    new Paragraph({
-      spacing: { after: 200 },
-      children: [new TextRun({ text: `Proforma Invoice No. : ${data.proforma_no}`, font: "Arial", size: 20, color: "333333" })],
-    })
-  );
+/** Word-wrap text to fit within maxWidth, returns array of lines */
+function wrapText(font: PDFFont, text: string, size: number, maxWidth: number): string[] {
+  const words = text.split(/\s+/);
+  const lines: string[] = [];
+  let current = "";
+  for (const word of words) {
+    const test = current ? `${current} ${word}` : word;
+    if (textWidth(font, test, size) < maxWidth) {
+      current = test;
+    } else {
+      if (current) lines.push(current);
+      current = word;
+    }
+  }
+  if (current) lines.push(current);
+  return lines;
+}
 
-  children.push(new Paragraph({ spacing: { before: 2400 }, children: [] }));
+async function embedImageSafe(
+  doc: PDFDocument,
+  filePath: string,
+  type: "png" | "jpg"
+): Promise<PDFImage | null> {
+  const bytes = tryReadFile(filePath);
+  if (!bytes) return null;
+  return type === "png" ? doc.embedPng(bytes) : doc.embedJpg(bytes);
+}
 
-  children.push(
-    new Paragraph({
-      spacing: { after: 200 },
-      children: [new TextRun({ text: "Proposal for", font: "Arial", size: 48, color: "777777" })],
-    })
-  );
+function drawCoverPage(
+  page: PDFPage,
+  data: OfferData,
+  fonts: { regular: PDFFont; bold: PDFFont; boldItalic: PDFFont },
+  logoImage: PDFImage | null
+) {
+  const { regular, bold, boldItalic } = fonts;
 
-  const logo = tryReadImage(path.join(BRAND_DIR, "image6.png"));
-  if (logo) {
-    children.push(
-      new Paragraph({
-        spacing: { after: 100 },
-        children: [
-          new ImageRun({
-            type: "png",
-            data: logo,
-            transformation: { width: 380, height: 54 },
-            altText: { title: "OrientJet Logo", description: "OrientJet Logo", name: "logo" },
-          }),
-        ],
-      })
-    );
+  // Top-left decorative bars
+  page.drawRectangle({ x: 45, y: PAGE_H - 80, width: 6, height: 60, color: GREY_DARK });
+  page.drawRectangle({ x: 53, y: PAGE_H - 75, width: 6, height: 50, color: RED });
+
+  // Date and Proforma number
+  let y = PAGE_H - 130;
+  page.drawText(`Date : ${data.date}`, { x: 120, y, font: regular, size: 10, color: BLACK });
+  page.drawText(`Proforma Invoice No. : ${data.proforma_no}`, { x: 120, y: y - 16, font: regular, size: 10, color: BLACK });
+
+  // "Proposal for" heading
+  y = PAGE_H - 310;
+  page.drawText("Proposal for", { x: 100, y, font: regular, size: 24, color: GREY_MED });
+
+  // OrientJet logo
+  if (logoImage) {
+    page.drawImage(logoImage, { x: 80, y: y - 80, width: 300, height: 43 });
   }
 
-  children.push(
-    new Paragraph({
-      spacing: { after: 100 },
-      children: [
-        new TextRun({ text: data.series + " ", font: "Arial", size: 40, bold: true, color: "D42B2B" }),
-        new TextRun({ text: "Digital Inkjet Press", font: "Arial", size: 40, bold: true, italics: true, color: "555555" }),
-      ],
-    })
-  );
+  // Series name + "Digital Inkjet Press"
+  const ySeries = y - 110;
+  const seriesText = data.series;
+  page.drawText(seriesText, { x: 80, y: ySeries, font: bold, size: 20, color: RED });
+  const seriesWidth = textWidth(bold, seriesText + " ", 20);
+  page.drawText("Digital Inkjet Press", { x: 80 + seriesWidth, y: ySeries, font: boldItalic, size: 20, color: GREY_DARK });
 
-  children.push(new Paragraph({ spacing: { before: 2400 }, children: [] }));
-
-  children.push(
-    new Paragraph({
-      spacing: { after: 80 },
-      children: [new TextRun({ text: "Proposal for:-", font: "Arial", size: 24, bold: true, color: "000000" })],
-    })
-  );
-  children.push(
-    new Paragraph({
-      spacing: { after: 60 },
-      children: [new TextRun({ text: `M/s. ${data.customer_name}`, font: "Arial", size: 24, bold: true, color: "000000" })],
-    })
-  );
+  // "Proposal for:-" and customer
+  const yCust = PAGE_H - 560;
+  page.drawText("Proposal for:-", { x: 100, y: yCust, font: bold, size: 12, color: BLACK });
+  page.drawText(`M/s. ${data.customer_name}`, { x: 100, y: yCust - 22, font: bold, size: 12, color: BLACK });
 
   if (data.customer_address) {
-    for (const line of data.customer_address.split("\n").slice(0, 3)) {
-      children.push(
-        new Paragraph({
-          spacing: { after: 30 },
-          children: [new TextRun({ text: line, font: "Arial", size: 18, color: "555555" })],
-        })
-      );
+    const addrLines = data.customer_address.split("\n").slice(0, 3);
+    for (let i = 0; i < addrLines.length; i++) {
+      page.drawText(addrLines[i], { x: 100, y: yCust - 42 - i * 14, font: regular, size: 9, color: GREY_DARK });
     }
   }
 
-  return {
-    properties: {
-      page: {
-        size: { width: A4_W, height: A4_H },
-        margin: { top: 720, right: 1080, bottom: 720, left: 1440 },
-      },
-    },
-    children,
-  };
+  // Bottom-right decorative triangle
+  page.drawRectangle({ x: PAGE_W - 100, y: 0, width: 100, height: 120, color: LIGHT_GREY });
+
+  // Red diagonal lines at bottom-right
+  page.drawLine({ start: { x: PAGE_W - 50, y: 15 }, end: { x: PAGE_W - 15, y: 70 }, color: RED, thickness: 2 });
+  page.drawLine({ start: { x: PAGE_W - 40, y: 10 }, end: { x: PAGE_W - 5, y: 65 }, color: RED, thickness: 2 });
+  page.drawLine({ start: { x: PAGE_W - 30, y: 5 }, end: { x: PAGE_W + 5, y: 60 }, color: RED, thickness: 2 });
 }
 
-function buildBoilerplateSection(pageNum: number) {
-  const imgPath = path.join(ASSETS_DIR, `page_${pageNum}.png`);
-  const img = tryReadImage(imgPath);
+function drawPricingPage(
+  page: PDFPage,
+  data: OfferData,
+  fonts: { regular: PDFFont; bold: PDFFont },
+  images: {
+    pricingBg: PDFImage | null;
+    specTitle: PDFImage | null;
+    pricingTitle: PDFImage | null;
+  }
+) {
+  const { regular, bold } = fonts;
+  const RIGHT_MARGIN = PAGE_W - 100;
 
-  return {
-    properties: {
-      page: {
-        size: { width: A4_W, height: A4_H },
-        margin: { top: 0, right: 0, bottom: 0, left: 0 },
-      },
-    },
-    children: img
-      ? [
-          new Paragraph({
-            children: [
-              new ImageRun({
-                type: "png",
-                data: img,
-                transformation: { width: 595, height: 842 },
-                altText: { title: `Page ${pageNum}`, description: `Boilerplate page ${pageNum}`, name: `page${pageNum}` },
-              }),
-            ],
-          }),
-        ]
-      : [new Paragraph({ children: [new TextRun({ text: `[Boilerplate page ${pageNum}]`, font: "Arial", size: 24 })] })],
-  };
-}
+  // Background image (includes T&C sidebar + Thank You graphic)
+  if (images.pricingBg) {
+    page.drawImage(images.pricingBg, { x: 0, y: 0, width: PAGE_W, height: PAGE_H });
+  }
 
-function buildPricingSection(data: OfferData) {
-  const children = [];
-  const RED = "D42B2B";
-  const GREY = "555555";
+  // Dot grid decoration at top-right
+  const dotStartX = PAGE_W - 85;
+  const dotStartY = PAGE_H - 15;
+  for (let row = 0; row < 7; row++) {
+    for (let col = 0; col < 10; col++) {
+      page.drawCircle({
+        x: dotStartX + col * 8,
+        y: dotStartY - row * 8,
+        size: 1.8,
+        color: DOT_GREY,
+      });
+    }
+  }
 
-  // Machine Specification title
-  const specTitle = tryReadImage(path.join(BRAND_DIR, "image16.jpeg"));
-  if (specTitle) {
-    children.push(
-      new Paragraph({
-        spacing: { after: 200 },
-        children: [
-          new ImageRun({
-            type: "jpg",
-            data: specTitle,
-            transformation: { width: 220, height: 60 },
-            altText: { title: "Machine Specification", description: "Machine Specification Title", name: "specTitle" },
-          }),
-        ],
-      })
-    );
-  } else {
-    children.push(
-      new Paragraph({
-        spacing: { after: 200 },
-        children: [new TextRun({ text: "Machine Specification", font: "Arial", size: 36, bold: true, color: GREY })],
-      })
-    );
+  // "Machine Specification" title image
+  if (images.specTitle) {
+    page.drawImage(images.specTitle, { x: 55, y: PAGE_H - 75, width: 190, height: 52 });
   }
 
   // Machine description
-  children.push(
-    new Paragraph({
-      spacing: { after: 200 },
-      indent: { left: 1440 },
-      children: [new TextRun({ text: data.machine_description, font: "Arial", size: 20, bold: true })],
-    })
-  );
+  let y = PAGE_H - 100;
+  page.drawText(data.machine_description || "", { x: 160, y, font: bold, size: 10, color: BLACK });
+  y -= 22;
 
   // Spec bullets
   for (const spec of data.specifications) {
-    children.push(
-      new Paragraph({
-        spacing: { before: 120, after: 40 },
-        indent: { left: 1800 },
-        children: [
-          new TextRun({ text: "\u2756 ", font: "Arial", size: 14, color: RED }),
-          new TextRun({ text: spec.name, font: "Arial", size: 16, bold: true, underline: {} }),
-        ],
-      })
-    );
+    if (y < 120) break;
+
+    // Diamond marker (use a simple character since pdf-lib standard fonts lack ❖)
+    page.drawText("\u2666", { x: 165, y, font: regular, size: 7, color: RED });
+
+    // Spec name (bold + underline)
+    const nameWidth = textWidth(bold, spec.name, 8);
+    page.drawText(spec.name, { x: 180, y, font: bold, size: 8, color: BLACK });
+    page.drawLine({
+      start: { x: 180, y: y - 1.5 },
+      end: { x: 180 + nameWidth, y: y - 1.5 },
+      color: BLACK,
+      thickness: 0.5,
+    });
+
+    y -= 12;
     for (const detail of spec.details) {
-      children.push(
-        new Paragraph({
-          spacing: { after: 20 },
-          indent: { left: 2160 },
-          children: [new TextRun({ text: detail, font: "Arial", size: 14, color: GREY })],
-        })
-      );
+      page.drawText(detail, { x: 185, y, font: regular, size: 7, color: GREY_DARK });
+      y -= 10;
     }
+    y -= 4;
   }
 
-  children.push(new Paragraph({ spacing: { before: 400 }, children: [] }));
+  // ── Equipment Pricing section ──
+  let pricingY = Math.min(y - 30, PAGE_H * 0.40);
 
-  // Equipment Pricing title
-  const pricingTitle = tryReadImage(path.join(BRAND_DIR, "image19.jpeg"));
-  if (pricingTitle) {
-    children.push(
-      new Paragraph({
-        alignment: AlignmentType.RIGHT,
-        spacing: { after: 200 },
-        children: [
-          new ImageRun({
-            type: "jpg",
-            data: pricingTitle,
-            transformation: { width: 200, height: 55 },
-            altText: { title: "Equipment Pricing", description: "Equipment Pricing Title", name: "pricingTitle" },
-          }),
-        ],
-      })
-    );
-  } else {
-    children.push(
-      new Paragraph({
-        alignment: AlignmentType.RIGHT,
-        spacing: { after: 200 },
-        children: [new TextRun({ text: "Equipment Pricing", font: "Arial", size: 36, bold: true, color: GREY })],
-      })
-    );
+  // Equipment Pricing title image (right-aligned)
+  if (images.pricingTitle) {
+    page.drawImage(images.pricingTitle, { x: PAGE_W - 260, y: pricingY + 5, width: 190, height: 55 });
   }
+  pricingY -= 20;
 
   // Pricing lines
   for (const item of data.pricing_items) {
-    children.push(
-      new Paragraph({
-        spacing: { after: 60 },
-        tabStops: [{ type: TabStopType.RIGHT, position: TabStopPosition.MAX }],
-        children: [
-          new TextRun({ text: item.description, font: "Arial", size: 18, bold: true }),
-          new TextRun({ text: `\t${fmtPrice(item.price, data.currency)}`, font: "Arial", size: 18, bold: true }),
-        ],
-      })
-    );
+    page.drawText(item.description, { x: 100, y: pricingY, font: bold, size: 9, color: BLACK });
+    if (item.price > 0) {
+      const priceStr = fmtPrice(item.price, data.currency);
+      const priceW = textWidth(bold, priceStr, 9);
+      page.drawText(priceStr, { x: RIGHT_MARGIN - priceW, y: pricingY, font: bold, size: 9, color: BLACK });
+    }
+    pricingY -= 15;
   }
 
-  // Total
-  if (data.total_price) {
-    children.push(
-      new Paragraph({
-        spacing: { before: 80, after: 80 },
-        tabStops: [{ type: TabStopType.RIGHT, position: TabStopPosition.MAX }],
-        border: { top: { style: BorderStyle.SINGLE, size: 1, color: "000000" } },
-        children: [
-          new TextRun({ text: "TOTAL OFFER PRICE", font: "Arial", size: 20, bold: true }),
-          new TextRun({ text: `\t${fmtPrice(data.total_price, data.currency)}`, font: "Arial", size: 20, bold: true }),
-        ],
-      })
-    );
-  }
-
+  // Pricing note
   if (data.pricing_note) {
-    children.push(
-      new Paragraph({
-        spacing: { after: 200 },
-        children: [new TextRun({ text: `*${data.pricing_note}`, font: "Arial", size: 16, bold: true })],
-      })
-    );
+    page.drawText(data.pricing_note, { x: 100, y: pricingY, font: bold, size: 8, color: BLACK });
+    pricingY -= 20;
   }
 
   // Ink pricing
   if (data.ink_prices.length > 0) {
-    children.push(
-      new Paragraph({
-        spacing: { before: 100, after: 80 },
-        children: [new TextRun({ text: "Ink Price :-", font: "Arial", size: 18, bold: true })],
-      })
-    );
+    pricingY -= 5;
+    page.drawText("Ink Price :-", { x: 100, y: pricingY, font: bold, size: 9, color: BLACK });
+    pricingY -= 16;
     for (const ink of data.ink_prices) {
-      children.push(
-        new Paragraph({
-          spacing: { after: 40 },
-          tabStops: [{ type: TabStopType.RIGHT, position: TabStopPosition.MAX }],
-          children: [
-            new TextRun({ text: ink.description, font: "Arial", size: 17 }),
-            new TextRun({ text: `\t${fmtPrice(ink.price, data.currency)}`, font: "Arial", size: 17 }),
-          ],
-        })
-      );
+      page.drawText(ink.description, { x: 100, y: pricingY, font: regular, size: 8.5, color: BLACK });
+      const inkStr = fmtPrice(ink.price, data.currency);
+      const inkW = textWidth(regular, inkStr, 8.5);
+      page.drawText(inkStr, { x: RIGHT_MARGIN - inkW, y: pricingY, font: regular, size: 8.5, color: BLACK });
+      pricingY -= 14;
     }
   }
 
+  // Installation terms (word-wrapped)
   if (data.installation_terms) {
-    children.push(
-      new Paragraph({
-        spacing: { before: 200, after: 80 },
-        children: [new TextRun({ text: data.installation_terms, font: "Arial", size: 16, bold: true })],
-      })
-    );
+    pricingY -= 10;
+    const lines = wrapText(bold, data.installation_terms, 8, PAGE_W - 200);
+    for (const line of lines.slice(0, 3)) {
+      page.drawText(line, { x: 100, y: pricingY, font: bold, size: 8, color: BLACK });
+      pricingY -= 12;
+    }
   }
 
+  // Service commitment (word-wrapped)
   if (data.service_commitment) {
-    children.push(
-      new Paragraph({
-        spacing: { before: 100, after: 100 },
-        children: [new TextRun({ text: data.service_commitment, font: "Arial", size: 16, bold: true })],
-      })
-    );
+    pricingY -= 8;
+    const lines = wrapText(bold, data.service_commitment, 8, PAGE_W - 200);
+    for (const line of lines.slice(0, 2)) {
+      page.drawText(line, { x: 100, y: pricingY, font: bold, size: 8, color: BLACK });
+      pricingY -= 12;
+    }
   }
 
-  // T&C reference
-  children.push(
-    new Paragraph({
-      spacing: { before: 200, after: 40 },
-      children: [
-        new TextRun({ text: "General Terms and Conditions ", font: "Arial", size: 16, bold: true }),
-        new TextRun({ text: "are applicable as published on", font: "Arial", size: 15 }),
-      ],
-    })
-  );
-  children.push(
-    new Paragraph({
-      spacing: { after: 40 },
-      children: [
-        new ExternalHyperlink({
-          children: [new TextRun({ text: "www.tphorient.com", font: "Arial", size: 14, color: "0066CC", underline: {} })],
-          link: "https://www.tphorient.com",
-        }),
-        new TextRun({ text: " website on the following link", font: "Arial", size: 14 }),
-      ],
-    })
-  );
-  children.push(
-    new Paragraph({
-      spacing: { after: 40 },
-      children: [
-        new ExternalHyperlink({
-          children: [new TextRun({ text: "https://tphorient.com/assets/pdf/domestic.pdf", font: "Arial", size: 14, color: "0066CC", underline: {} })],
-          link: "https://tphorient.com/assets/pdf/domestic.pdf",
-        }),
-        new TextRun({ text: " for orders in India", font: "Arial", size: 14 }),
-      ],
-    })
-  );
-  children.push(
-    new Paragraph({
-      spacing: { after: 40 },
-      children: [
-        new ExternalHyperlink({
-          children: [new TextRun({ text: "https://tphorient.com/assets/pdf/International.pdf", font: "Arial", size: 14, color: "0066CC", underline: {} })],
-          link: "https://tphorient.com/assets/pdf/International.pdf",
-        }),
-        new TextRun({ text: " for orders outside of India.", font: "Arial", size: 14 }),
-      ],
-    })
-  );
-
-  // Thank You
-  children.push(new Paragraph({ spacing: { before: 600 }, children: [] }));
-  children.push(
-    new Paragraph({
-      alignment: AlignmentType.RIGHT,
-      children: [new TextRun({ text: "THANK YOU", font: "Arial", size: 48, bold: true, color: "DDDDDD" })],
-    })
-  );
-
-  return {
-    properties: {
-      page: {
-        size: { width: A4_W, height: A4_H },
-        margin: { top: 720, right: 1080, bottom: 720, left: 1080 },
-      },
-    },
-    children,
-  };
+  // T&C links
+  pricingY -= 10;
+  page.drawText("General Terms and Conditions", { x: 100, y: pricingY, font: bold, size: 8, color: BLACK });
+  const gtcW = textWidth(bold, "General Terms and Conditions ", 8);
+  page.drawText("are applicable as published on", { x: 100 + gtcW, y: pricingY, font: regular, size: 7.5, color: BLACK });
+  pricingY -= 12;
+  page.drawText("www.tphorient.com", { x: 100, y: pricingY, font: regular, size: 7.5, color: LINK_BLUE });
+  const siteW = textWidth(regular, "www.tphorient.com ", 7.5);
+  page.drawText("website on the following link", { x: 100 + siteW, y: pricingY, font: regular, size: 7.5, color: BLACK });
+  pricingY -= 12;
+  page.drawText("https://tphorient.com/assets/pdf/domestic.pdf", { x: 100, y: pricingY, font: regular, size: 7, color: LINK_BLUE });
+  const domW = textWidth(regular, "https://tphorient.com/assets/pdf/domestic.pdf ", 7);
+  page.drawText("for any orders in India and on the", { x: 100 + domW, y: pricingY, font: regular, size: 7, color: BLACK });
+  pricingY -= 12;
+  page.drawText("following link ", { x: 100, y: pricingY, font: regular, size: 7, color: BLACK });
+  const flW = textWidth(regular, "following link ", 7);
+  page.drawText("https://tphorient.com/assets/pdf/International.pdf", { x: 100 + flW, y: pricingY, font: regular, size: 7, color: LINK_BLUE });
+  const intW = textWidth(regular, "https://tphorient.com/assets/pdf/International.pdf ", 7);
+  page.drawText("for any orders outside of India.", { x: 100 + flW + intW, y: pricingY, font: regular, size: 7, color: BLACK });
 }
 
-export async function generateOfferDocx(data: OfferData): Promise<Buffer> {
-  const sections = [
-    buildCoverSection(data),
-    buildBoilerplateSection(2), // About Us
-    buildBoilerplateSection(3), // Orient Jet intro
-    buildBoilerplateSection(4), // Client logos
-    buildBoilerplateSection(5), // C-Series schematic
-    buildBoilerplateSection(6), // Tech specs 1
-    buildBoilerplateSection(7), // Tech specs 2
-    buildPricingSection(data),
-  ];
+export async function generateOfferPdf(data: OfferData): Promise<Uint8Array> {
+  // Determine series → template path
+  const isLP = data.series.toUpperCase().includes("L&P") || data.series.toUpperCase().includes("L & P");
+  const seriesDir = isLP ? "lp_series" : "cseries";
+  const templatePath = isLP
+    ? path.join(ASSETS_BASE, "lp_series", "24080A_template.pdf")
+    : path.join(ASSETS_BASE, "cseries", "25126_template.pdf");
 
-  const doc = new Document({ sections });
-  return Buffer.from(await Packer.toBuffer(doc));
+  // Load template PDF for boilerplate pages
+  const templateBytes = fs.readFileSync(templatePath);
+  const templateDoc = await PDFDocument.load(templateBytes);
+  const templatePageCount = templateDoc.getPageCount();
+
+  // Create output PDF
+  const pdfDoc = await PDFDocument.create();
+
+  // Embed fonts
+  const regular = await pdfDoc.embedFont(StandardFonts.Helvetica);
+  const bold = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
+  const boldItalic = await pdfDoc.embedFont(StandardFonts.HelveticaBoldOblique);
+
+  // Embed images for cover
+  const brandDir = path.join(ASSETS_BASE, seriesDir);
+  const logoImage = await embedImageSafe(pdfDoc, path.join(brandDir, "image6.png"), "png");
+
+  // Embed images for pricing page
+  const pricingBg = await embedImageSafe(pdfDoc, path.join(brandDir, "image18.jpg"), "jpg");
+  const specTitle = await embedImageSafe(pdfDoc, path.join(brandDir, "image16.jpeg"), "jpg");
+  const pricingTitle = await embedImageSafe(pdfDoc, path.join(brandDir, "image19.jpeg"), "jpg");
+
+  // Page 1: Cover
+  const coverPage = pdfDoc.addPage([PAGE_W, PAGE_H]);
+  drawCoverPage(coverPage, data, { regular, bold, boldItalic }, logoImage);
+
+  // Pages 2 through N-1: Boilerplate from template (skip first and last page)
+  const boilerplateEnd = Math.min(templatePageCount - 1, templatePageCount);
+  if (templatePageCount > 2) {
+    const boilerplateIndices = Array.from(
+      { length: boilerplateEnd - 1 },
+      (_, i) => i + 1
+    );
+    const copiedPages = await pdfDoc.copyPages(templateDoc, boilerplateIndices);
+    for (const copied of copiedPages) {
+      pdfDoc.addPage(copied);
+    }
+  }
+
+  // Last page: Machine Spec + Pricing
+  const pricingPage = pdfDoc.addPage([PAGE_W, PAGE_H]);
+  drawPricingPage(pricingPage, data, { regular, bold }, { pricingBg, specTitle, pricingTitle });
+
+  return pdfDoc.save();
 }

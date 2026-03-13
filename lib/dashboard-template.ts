@@ -693,7 +693,7 @@ export function generateDashboardHTML(data: DashboardData): string {
       <div id="offergenerator" class="page">
         <div class="page-header">
           <div class="page-title">Offer Generator</div>
-          <div class="page-desc">Upload the Sections A–E output from the Claude Enterprise Pricing Project to generate a branded 8-page offer DOCX.</div>
+          <div class="page-desc">Upload the Sections A–E output from the Claude Enterprise Pricing Project to generate a branded offer PDF.</div>
         </div>
         <style>
           @keyframes offerSpin { to { transform: rotate(360deg); } }
@@ -1557,7 +1557,7 @@ function offerGenerate() {
         proforma: res.headers.get('X-Offer-Proforma') || '',
         orderType: res.headers.get('X-Offer-Type') || '',
         total: parseFloat(res.headers.get('X-Offer-Total') || '0'),
-        filename: res.headers.get('X-Offer-Filename') || 'Orient_Jet_Offer.docx'
+        filename: res.headers.get('X-Offer-Filename') || 'Orient_Jet_Offer.pdf'
       };
       return res.blob().then(function(blob) { return { blob: blob, meta: meta }; });
     })

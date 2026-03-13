@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { parseClaudeOutput, generateOfferDocx } from "@/lib/offer-generator";
+import { parseClaudeOutput, generateOfferPdf } from "@/lib/offer-generator";
 import JSZip from "jszip";
 
 // Extract plain text from a .docx file buffer
@@ -59,19 +59,19 @@ export async function POST(request: Request) {
       );
     }
 
-    const buffer = await generateOfferDocx(data);
+    const pdfBytes = await generateOfferPdf(data);
 
     // Build filename
     const safeName = (data.customer_name || "Offer")
       .replace(/[[\]]/g, "")
       .replace(/\s+/g, "_")
       .replace(/[^a-zA-Z0-9_-]/g, "");
-    const filename = `Orient_Jet_${safeName}_${data.series.replace(/\s+/g, "_")}.docx`;
+    const filename = `Orient_Jet_${safeName}_${data.series.replace(/\s+/g, "_")}.pdf`;
 
     // Return parsed metadata as JSON headers so the client can save to offers table
-    return new NextResponse(buffer as unknown as BodyInit, {
+    return new NextResponse(pdfBytes as unknown as BodyInit, {
       headers: {
-        "Content-Type": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        "Content-Type": "application/pdf",
         "Content-Disposition": `attachment; filename="${filename}"`,
         "X-Offer-Customer": data.customer_name || "",
         "X-Offer-Series": data.series || "",

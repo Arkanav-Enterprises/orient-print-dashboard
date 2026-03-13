@@ -24,14 +24,15 @@ from reportlab.pdfgen import canvas
 from reportlab.lib.enums import TA_LEFT, TA_RIGHT, TA_CENTER
 from pypdf import PdfReader, PdfWriter, PdfMerger
 
-# ── PATHS ──────────────────────────────────────────────────────────
-ASSETS_DIR = "/sessions/eloquent-tender-bell/template_assets"
+# ── PATHS (relative to this script's location) ───────────────────
+_SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+ASSETS_DIR = os.path.join(_SCRIPT_DIR, "template_assets")
 CSERIES_ASSETS = os.path.join(ASSETS_DIR, "cseries")
 LP_ASSETS = os.path.join(ASSETS_DIR, "lp_series")
 
-# Template PDFs (boilerplate source)
-CSERIES_TEMPLATE_PDF = "/sessions/eloquent-tender-bell/mnt/uploads/25126_OrientJet C-SERIES_4 Col Duplex_ 432 mm _printing unit.pdf"
-LP_TEMPLATE_PDF = "/sessions/eloquent-tender-bell/mnt/uploads/24080A_OrientJet L&P Series Press - 540 MM _ UV Based.pdf"
+# Template PDFs (boilerplate source) — place these in template_assets/
+CSERIES_TEMPLATE_PDF = os.path.join(ASSETS_DIR, "cseries", "25126_template.pdf")
+LP_TEMPLATE_PDF = os.path.join(ASSETS_DIR, "lp_series", "24080A_template.pdf")
 
 # Brand asset paths  
 COVER_BG_CSERIES = os.path.join(CSERIES_ASSETS, "image3.png")       # Cover+OrientJet intro (full page)
@@ -537,5 +538,5 @@ if __name__ == "__main__":
         "service_commitment": "We commit to providing exceptional service for this machine over the next 7 years, including all spare parts and consumables, offered at a competitive cost.",
     }
     
-    output = "/sessions/eloquent-tender-bell/mnt/OrientPrint/Offer_Generator_Project/DEMO_Branded_Offer.pdf"
+    output = os.path.join(_SCRIPT_DIR, "DEMO_Branded_Offer.pdf")
     generate_branded_offer(demo_data, output)
