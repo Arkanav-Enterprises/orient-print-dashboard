@@ -1,5 +1,5 @@
 # Claude Context: AI Integration Rollout — The Printers Houst Pvt. Ltd.
-## Last Updated: March 13, 2026 (V2.2 — Branded Offer PDF Generator complete)
+## Last Updated: March 13, 2026 (V2.6 — Two-step workflow: Claude Enterprise pricing → Dashboard tool generates branded PDF)
 
 > **Purpose**: Drop this file into any Claude Project or Cowork session to give Claude full context on the AI rollout. It covers architecture decisions, use case mappings, dependencies, and current status.
 
@@ -161,7 +161,7 @@ Skills (Cowork desktop) cannot be "attached to" a specific Project. They're avai
 | 8 | Reorder Alert System | Inventory levels | Threshold alerts + reorder suggestions | ERP MCP + scheduled tasks |
 | 9 | Outbound Enquiry Pipeline (V2) | Target criteria | Qualified leads → outreach sequences | IndiaMart/trade directory access |
 | 10 | Travel Desk Coordinator (V2) | Service visit details | Itinerary + booking + expense report | Travel API MCP |
-| 11 | **Offer Generator** ✅ LIVE | Machine spec + domestic/intl flag | Professional offer PDF with pricing + T&C | Pricing master spreadsheet + T&C PDFs |
+| 11 | **Offer Generator** ✅ LIVE | Machine spec + domestic/intl flag | Professional offer DOCX with pricing + T&C | Pricing master spreadsheet + T&C knowledge files |
 
 ---
 
@@ -187,32 +187,33 @@ Skills (Cowork desktop) cannot be "attached to" a specific Project. They're avai
 
 The first skill to go live. Located at `Offer_Generator_Project/`. This is a Claude Enterprise Project demo showing how a team member enters a machine spec and gets a calculated offer with correct pricing and T&C.
 
-### Workflow (Two-Step)
+### Workflow (Two-Step: Claude Enterprise → Dashboard Tool)
 
-1. **Claude Enterprise Project** ("OrientPrint – Sales Proposals & Pricing") — User enters a machine spec prompt. Claude calculates pricing from the master spreadsheet and generates structured output with cover data, machine specifications, and equipment pricing.
+**Step 1 — Claude Enterprise Project** ("OrientPrint – Sales Proposals & Pricing"):
+User enters a machine spec prompt. Claude calculates pricing from the master spreadsheet and outputs structured text (Sections A–E: Cover Data, Machine Specification, Equipment Pricing, T&C Reference, Delivery & Payment).
 
-2. **Branded PDF Generator** (`generate_branded_offer.py`) — Takes the Claude output and produces an 8-page branded PDF matching the real offer template format:
-   - Page 1: Cover page (generated — date, proforma no., series, customer name)
-   - Pages 2-4: About Us, Orient Jet Intro, Client Logos (boilerplate from template PDF)
-   - Pages 5-7: C-Series schematic + Press Configuration details with photos (boilerplate)
-   - Page 8: Machine Specification + Equipment Pricing (generated — specs, pricing, ink prices, T&C links, Thank You graphic)
+**Step 2 — Dashboard Offer Generator Tool** (Tools → Offer Generator):
+User pastes the structured text into the dashboard tool. The tool runs the Node.js pipeline (`generate_offer_docx.js`) which produces a branded 8-page DOCX with boilerplate pages (About Us, Orient Jet Intro, Client Logos, Press Configuration) and the generated pricing/spec pages.
 
-### Project Files
+Why two steps: Claude Enterprise can calculate pricing accurately but cannot produce branded visual documents with logos, photos, and design elements. The dashboard tool handles the visual generation.
 
-**For Claude Enterprise Project:**
-- `PROJECT_INSTRUCTIONS.md` — System prompt (paste as project instructions)
+### Project Files (all in `Offer_Generator_Project/`)
+
+**Claude Enterprise Project Knowledge Files:**
+- `PROJECT_INSTRUCTIONS.md` — System prompt (paste as project instructions). Outputs Sections A–E structured text.
 - `KNOWLEDGE_Pricing_Logic.md` — Head count formulas, margin calculations, sheet structure
 - `KNOWLEDGE_Price_List_Digital.xlsx` — Pricing master (5 sheets: C-Series 600/1200, L&P 600/1200, Extra Colour)
 - `KNOWLEDGE_Domestic_TnC.md` — Full domestic General Terms and Conditions of Sale
 - `KNOWLEDGE_International_TnC.md` — Full international T&C (includes export clauses, LC payment, visa provisions)
 
-**For Branded PDF Generation:**
-- `generate_branded_offer.py` — ReportLab + pypdf script that generates branded PDFs
-- `template_assets/cseries/` — Brand images extracted from real offer docx files (Machine Specification title, Equipment Pricing title, page backgrounds with decorative elements, Thank You graphic)
-- `DEMO_Branded_Offer.pdf` — 8-page branded output matching real offer format
-- `DEMO_Offer_Output.pdf` — Earlier simple pricing output (superseded by branded version)
+**Dashboard Tool Pipeline:**
+- `generate_offer_docx.js` — Node.js generator: parses structured text → branded 8-page DOCX with boilerplate pages
+- `run_offer.py` — Python CLI parser (alternative entry point, same pipeline)
+- `template_assets/boilerplate_pages/` — Pages 2-7 as full-page PNG images (About Us, Orient Jet, Client Logos, Press Config)
+- `template_assets/cseries/` — Brand images (logo, section titles)
 
-**Template PDFs (boilerplate source):** The generator extracts pages 2-7 from an existing offer PDF (e.g., `25126_OrientJet C-SERIES...pdf`) as boilerplate. These contain the About Us page, Orient Jet intro with Technical Support, Client logos, and the full C-Series press configuration with schematic drawings and component photos. For L&P Series, it uses `24080A_OrientJet L&P Series...pdf`.
+**Legacy (kept for reference):**
+- `generate_branded_offer.py` — Python ReportLab PDF generator (superseded by Node.js pipeline)
 
 ### Pricing Model
 - Core costs: IDS boards + print heads + electronics (scale with width/colors/duplex)
@@ -222,9 +223,10 @@ The first skill to go live. Located at `Offer_Generator_Project/`. This is a Cla
 - Never reveal internal costs or partner margin (10%) to customer
 
 ### Next.js Dashboard Integration
-- Added to backfill data as skill #11 with full pre-populated instructions, input fields, output format, examples, and knowledge file references
+- Skill #11 in backfill data with full instructions, 6 input fields, output format, examples, and 4 knowledge file references
 - Shows in Skill Creator with "LIVE" tag
 - Category: sales, Department: Marketing & Sales, Tier: T2
+- **Dashboard Tool page** at `/tools/offer-generator` — accepts structured text, runs the Node.js pipeline, returns branded DOCX
 
 ---
 
@@ -233,5 +235,5 @@ The first skill to go live. Located at `Offer_Generator_Project/`. This is a Cla
 - `AI_Integration_Master_Plan_V2.docx` — Updated V2 (49 use cases)
 - `AI_Integration_Summary_Presentation.pptx` — 14-slide stakeholder deck (matches V2)
 - `AI_Rollout_Dashboard.html` — Static HTML dashboard (legacy, replaced by Next.js app)
-- `Offer_Generator_Project/` — Full offer generator project (knowledge files + branded PDF generator + template assets)
+- `Offer_Generator_Project/` — Full offer generator project (knowledge files + branded DOCX pipeline + template assets)
 - This file — Shareable context for any Claude session

@@ -7,6 +7,7 @@ const LINKS = [
   { href: "/", label: "Dashboards" },
   { href: "/new", label: "New Dashboard" },
   { href: "/template", label: "Client Template" },
+  { href: "/tools", label: "Tools" },
 ];
 
 function isActive(pathname: string, href: string): boolean {

@@ -184,42 +184,70 @@ const SKILLS = [
     category: "sales",
     department: "Marketing & Sales",
     tier: "t2",
-    description: "Machine spec to branded 8-page offer PDF. Two-step: Claude Project generates structured data, Python script produces branded PDF with boilerplate pages. LIVE.",
-    instructions: `You are the Orient Jet Offer Generator. When a team member provides a machine specification, generate structured output for the branded PDF template.
+    description: "Machine spec to branded 8-page offer PDF. Two-step: Claude Enterprise Project calculates pricing and outputs structured text, then the Dashboard Offer Generator tool produces the branded DOCX/PDF. LIVE.",
+    instructions: `You are the Orient Jet Offer Generator for The Printers House Private Limited (TPH), operating under the brand "Orient".
 
 WORKFLOW:
-1. Ask if the order is DOMESTIC or INTERNATIONAL (determines currency and T&C reference)
-2. Identify the machine series (C-Series or L&P Series), resolution (600/1200 dpi), and head technology
-3. Look up pricing from the Price List Digital spreadsheet (match correct sheet by series + resolution)
-4. Calculate: heads_per_color_per_side = ceil(print_width / head_coverage_mm), total_heads = that × colors × duplex_factor
-5. Calculate core costs (IDS × qty, Heads × qty, Electronics × qty) + add-on components
-6. Apply 20% gross margin: Offer Price = Total Cost / (1 - 0.20)
-7. Output structured sections: Cover Data, Machine Specification, Equipment Pricing, Ink Pricing, Delivery & Payment
+1. DETERMINE ORDER TYPE — Always ask if domestic or international. Domestic = INR (₹), International = USD ($).
+2. IDENTIFY MACHINE CONFIG — Extract: Machine Series (C-Series/L&P), Resolution (600/1200 dpi), Print Width (mm), Duplex/Simplex (2=duplex, 1=simplex), Number of Colours, Print Head Technology (default: Kyocera RC for C-Series, Kyocera Katana for L&P).
+3. CALCULATE PRICE — Look up correct sheet in Price List (match series + resolution + head tech). Head count: ceil(width / head_coverage) × colors × duplex. Core costs: IDS + heads + electronics. Add-ons at specified quantities. GM Price = Total Cost / (1 - 0.20).
+4. OUTPUT STRUCTURED TEXT (Sections A–E) — pasted into the Dashboard Offer Generator tool to produce the branded 8-page DOCX/PDF.
 
-OUTPUT feeds into generate_branded_offer.py which produces an 8-page branded PDF:
-Page 1: Cover (date, proforma no., customer, series) | Pages 2-7: Boilerplate (About Us, Orient Jet, Client logos, Press Config) | Page 8: Machine Spec + Equipment Pricing + T&C links + Thank You
+SECTION A: COVER PAGE DATA
+SERIES, DATE, PROFORMA_NO, CUSTOMER_NAME, CUSTOMER_ADDRESS, ORDER_TYPE
+
+SECTION B: MACHINE SPECIFICATION
+MACHINE_DESCRIPTION + spec table (Print Head, Electronic, Web Transport, Unwinder, IDS, RIP+Server, Finishing)
+
+SECTION C: EQUIPMENT PRICING
+Row-by-row pricing table: IDS | Print Heads | Electronics | Core Subtotal | Unwind | Printing Unit | IR Drying | Wide Web | Coating | Rewind | RIP+Server | Sheeter | Installation | TOTAL OFFER PRICE
+Plus: Pricing Note, Ink Pricing (actual prices from spreadsheet), Installation Terms, Service Commitment
+
+SECTION D: TERMS & CONDITIONS REFERENCE
+Links to domestic/international T&C PDFs on tphorient.com
+
+SECTION E: DELIVERY & PAYMENT
+Delivery timeline + payment terms (domestic: 50/50 with GST, international: 50% advance + 50% LC)
 
 RULES:
-- Prices in Indian numbering ₹X,XX,XX,XXX (domestic) or $XXX,XXX.XX (international)
-- Never reveal internal cost prices or partner margin
-- Offer price = GM Price (20% margin). Never show Partner Price
-- Default delivery: 6 months. Override if user specifies different
-- Default payment: 50% advance + 50% before dispatch
-- T&C referenced via URL links (not appended inline)`,
+- Only include components with qty > 0
+- Currency: ₹ XX,XX,XXX (Indian numbering) or $ XXX,XXX.XX
+- Offer price = GM Price (20% margin). NEVER reveal cost prices or partner margin
+- Round final price to nearest ₹500 or $100
+- Look up actual ink prices from spreadsheet — never write "On Request"
+- Default delivery: 6 months. Default payment: 50% advance + 50% before dispatch`,
     inputFields: [
-      { name: "machine_spec", type: "string", description: "Full machine specification (series, resolution, head tech, width, duplex, colors, component quantities)", required: true },
-      { name: "order_type", type: "string", description: "domestic or international", required: true },
-      { name: "customer_name", type: "string", description: "Customer company name", required: false },
+      { name: "machine_spec", type: "text", description: "Full machine specification: series (C-Series/L&P), resolution (600/1200 dpi), head technology, print width (mm), duplex/simplex, number of colours, and quantity for each component (unwind, printing unit, IR drying, wide web, coating, rewind, RIP+server, sheeter, installation)", required: true },
+      { name: "order_type", type: "select", description: "Domestic (INR) or International (USD)", required: true },
+      { name: "customer_name", type: "string", description: "Customer company name (or leave as placeholder for team to fill later)", required: false },
+      { name: "customer_address", type: "string", description: "Customer address (or leave as placeholder)", required: false },
       { name: "delivery_months", type: "number", description: "Custom delivery timeline in months (default: 6)", required: false },
+      { name: "proforma_no", type: "string", description: "Proforma invoice number (e.g., 26128). Auto-generated if not provided.", required: false },
     ],
-    outputFormat: "Structured sections for branded PDF: (A) Cover Page Data (series, date, proforma no, customer), (B) Machine Specification bullets, (C) Equipment Pricing table with totals, (D) Ink Pricing, (E) Delivery & Payment terms. T&C referenced via URL links to tphorient.com.",
+    outputFormat: `Structured text in 5 sections:
+SECTION A: Cover Page Data (series, date, proforma no, customer name/address, order type)
+SECTION B: Machine Specification (description line + 7-row spec table with component details)
+SECTION C: Equipment Pricing (itemized pricing table with 12 rows, core subtotal, total offer price, pricing note, ink pricing with actual prices, installation terms, service commitment)
+SECTION D: Terms & Conditions Reference (URL links to domestic/international T&C PDFs)
+SECTION E: Delivery & Payment (timeline + payment terms)
+
+This output is pasted into the Dashboard Offer Generator tool (Tools → Offer Generator) to produce the branded 8-page DOCX/PDF with boilerplate pages (About Us, Orient Jet Intro, Client Logos, Press Configuration).`,
     examples: [
       {
-        input: "Orient Jet C Series 600x600 dpi Kyocera RC, width 540 mm, Duplex, 4 colours, unwind unit qty 1, printing unit qty 1, ir drying qty 2, extra for wide web qty 1, coating + drying qty 1, rewind qty 1, rip + server + imposition software qty 1, sheeter qty 1, miscellaneous qty 0, installation & commissioning qty 1. Delivery 6 months.",
-        output: "SERIES: C SERIES | TOTAL OFFER PRICE: ₹5,79,52,500 | 7 spec sections (Print Head, Electronic, Web Transport, Unwinder, IDS, RIP+Server, Finishing) | Ink: ₹3,000-4,000/ltr | Delivery: 6 months | T&C: tphorient.com/assets/pdf/domestic.pdf"
+        input: "Orient Jet C Series 600x600 dpi Kyocera RC, width 540 mm, Duplex, 4 colours. Unwind: 1, Printing unit: 1, IR drying: 2, Extra wide web: 1, Coating + drying: 1, Rewind: 1, RIP + server: 1, Sheeter: 1, Installation: 1. Domestic order, delivery 6 months.",
+        output: `SECTION A: SERIES: C SERIES | DATE: 13/03/2026 | PROFORMA_NO: 26XXX | ORDER_TYPE: DOMESTIC
+SECTION B: "4 Col, Duplex printing unit 540 mm (Print width)" | 40 Print Heads × 4 Col × 2 Arrays @ 600x600 dpi 100 mtr/min
+SECTION C: IDS ₹1,10,00,000 | Heads ₹1,26,72,000 | Electronics ₹55,00,000 | Subtotal ₹2,91,72,000 | + add-ons | TOTAL: ₹5,79,52,500 | Ink: Black ₹3,500/ltr, CMY ₹3,800/ltr, Coated ₹4,200/ltr
+SECTION D: Domestic T&C: tphorient.com/assets/pdf/domestic.pdf
+SECTION E: Delivery: 6 months | Payment: 50% advance + 50% before dispatch`
       }
     ],
-    knowledgeFiles: ["KNOWLEDGE_Price_List_Digital.xlsx", "KNOWLEDGE_Pricing_Logic.md", "KNOWLEDGE_Domestic_TnC.md", "KNOWLEDGE_International_TnC.md"],
+    knowledgeFiles: [
+      { name: "KNOWLEDGE_Price_List_Digital.xlsx", description: "Pricing master spreadsheet — 5 sheets (C-Series 600/1200, L&P 600/1200, Extra Colour). Contains unit prices, actual costs, and formulas for all components by head technology." },
+      { name: "KNOWLEDGE_Pricing_Logic.md", description: "Head count formulas, sheet structure explanation, margin calculation methodology, currency rules." },
+      { name: "KNOWLEDGE_Domestic_TnC.md", description: "Full domestic General Terms and Conditions of Sale — Applicability, Products, Prices/Payment, Delivery, Warranty, Limitation of Liability, etc." },
+      { name: "KNOWLEDGE_International_TnC.md", description: "Full international T&C — includes export clauses, LC payment terms, visa provisions for installation engineers, insurance, etc." },
+    ],
   },
 ];
 

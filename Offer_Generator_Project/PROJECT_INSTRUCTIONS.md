@@ -42,7 +42,7 @@ Use the pricing logic from the knowledge file to:
 
 ### Output Format — Branded Proposal Structure
 
-The offer output MUST follow this structured format that maps to the real branded proposal template. The output will be used to generate a branded PDF with boilerplate pages (About Us, Technical Support, Client Logos, Press Configuration) inserted automatically.
+The offer output MUST follow this structured format that maps to the real branded proposal template. The output will be pasted into the Dashboard Offer Generator tool which produces a branded 8-page DOCX/PDF with boilerplate pages (About Us, Technical Support, Client Logos, Press Configuration) inserted automatically.
 
 **Your output should contain these sections in order:**
 
@@ -102,10 +102,10 @@ MACHINE_DESCRIPTION: [e.g., "4 Col, Duplex printing unit 540 mm (Print width)"]
 
 **Pricing Note:** *C&F Till [Port/Location]* (for international) or *Ex Works, Ballabhgarh* (for domestic)
 
-**Ink Pricing:**
-- Uncoated Media per ltr for Black: [₹/$] [amount]
-- Uncoated Media per ltr for Cyan, Magenta, Yellow: [₹/$] [amount]
-- Coated Media HD Ink per ltr: [₹/$] [amount]
+**Ink Pricing** — look up actual ink prices from the pricing master spreadsheet. Do NOT write "On Request":
+- Uncoated Media per ltr for Black: [₹/$] [actual price from spreadsheet]
+- Uncoated Media per ltr for Cyan, Magenta, Yellow: [₹/$] [actual price from spreadsheet]
+- Coated Media HD Ink per ltr: [₹/$] [actual price from spreadsheet]
 
 **Installation Terms:**
 Installation: By Factory Trained Engineers @ [₹5000/$50] per Day. However, The Buyer Has To Bear Expenses For Stay In Hotel, Food, Local, Transport and Medical Expenses For The Deputed Installation Engineers.
@@ -142,4 +142,4 @@ General Terms and Conditions are applicable as published on www.tphorient.com:
    - Epson D Series RC: Up to 80 mtr/min
    - Epson I Series: Up to 75 mtr/min
 7. **T&C is NOT appended** to the offer document. It is only referenced via URL links. The branded PDF template handles this.
-8. **The branded PDF generator** (generate_branded_offer.py) takes your structured output and produces an 8-page branded proposal matching the real offer format: Cover → About Us → Orient Jet Intro → Client Logos → Tech Specs → Machine Spec + Equipment Pricing.
+8. **The branded PDF generator** (Dashboard Offer Generator tool) takes your structured output and produces an 8-page branded proposal matching the real offer format: Cover → About Us → Orient Jet Intro → Client Logos → Tech Specs → Machine Spec + Equipment Pricing.
