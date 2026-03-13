@@ -8,7 +8,8 @@ export async function GET(request: Request) {
     if (!dashboardId) return NextResponse.json({ error: "dashboardId required" }, { status: 400 });
 
     const rows = await sql`
-      SELECT id, customer_name, series, proforma_no, order_type, total_price, filename, created_at
+      SELECT id, customer_name, series, proforma_no, order_type, total_price, filename,
+             (pdf_data IS NOT NULL) as has_pdf, created_at
       FROM offers WHERE dashboard_id = ${dashboardId}
       ORDER BY created_at DESC LIMIT 50
     `;
@@ -22,14 +23,16 @@ export async function GET(request: Request) {
 export async function POST(request: Request) {
   try {
     const body = await request.json();
-    const { dashboardId, customerName, series, proformaNo, orderType, totalPrice, filename } = body;
+    const { dashboardId, customerName, series, proformaNo, orderType, totalPrice, filename, pdfBase64 } = body;
     if (!dashboardId) return NextResponse.json({ error: "dashboardId required" }, { status: 400 });
 
+    const pdfBuffer = pdfBase64 ? Buffer.from(pdfBase64, "base64") : null;
+
     const [row] = await sql`
-      INSERT INTO offers (dashboard_id, customer_name, series, proforma_no, order_type, total_price, filename)
+      INSERT INTO offers (dashboard_id, customer_name, series, proforma_no, order_type, total_price, filename, pdf_data)
       VALUES (${dashboardId}, ${customerName || ""}, ${series || ""}, ${proformaNo || ""},
-              ${orderType || "DOMESTIC"}, ${totalPrice || 0}, ${filename || ""})
-      RETURNING id, customer_name, series, proforma_no, order_type, total_price, filename, created_at
+              ${orderType || "DOMESTIC"}, ${totalPrice || 0}, ${filename || ""}, ${pdfBuffer})
+      RETURNING id, customer_name, series, proforma_no, order_type, total_price, filename, (pdf_data IS NOT NULL) as has_pdf, created_at
     `;
     return NextResponse.json(row);
   } catch (err: unknown) {

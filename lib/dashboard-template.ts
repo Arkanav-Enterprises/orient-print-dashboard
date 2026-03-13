@@ -1568,21 +1568,27 @@ function offerGenerate() {
       document.getElementById('offerDownloadName').textContent = result.meta.filename;
       document.getElementById('offerDownload').style.display = 'block';
 
-      // Save to offers table
+      // Save to offers table (include PDF as base64)
       if (OFFER_DASHBOARD_ID > 0) {
-        fetch('/api/offers', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            dashboardId: OFFER_DASHBOARD_ID,
-            customerName: result.meta.customer,
-            series: result.meta.series,
-            proformaNo: result.meta.proforma,
-            orderType: result.meta.orderType,
-            totalPrice: result.meta.total,
-            filename: result.meta.filename
-          })
-        }).then(function() { offerLoadHistory(); }).catch(function() {});
+        var reader = new FileReader();
+        reader.onload = function() {
+          var base64 = reader.result.toString().split(',')[1] || '';
+          fetch('/api/offers', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              dashboardId: OFFER_DASHBOARD_ID,
+              customerName: result.meta.customer,
+              series: result.meta.series,
+              proformaNo: result.meta.proforma,
+              orderType: result.meta.orderType,
+              totalPrice: result.meta.total,
+              filename: result.meta.filename,
+              pdfBase64: base64
+            })
+          }).then(function() { offerLoadHistory(); }).catch(function() {});
+        };
+        reader.readAsDataURL(result.blob);
       }
 
       offerResetDropzone();
@@ -1620,17 +1626,23 @@ function offerLoadHistory() {
         return;
       }
       var html = '<table style="width:100%;border-collapse:collapse;font-size:12px;">' +
-        '<tr style="border-bottom:1px solid var(--border);"><th style="text-align:left;padding:8px 12px;color:var(--muted);font-weight:500;">Customer</th><th style="text-align:left;padding:8px 12px;color:var(--muted);font-weight:500;">Series</th><th style="text-align:left;padding:8px 12px;color:var(--muted);font-weight:500;">Proforma</th><th style="text-align:right;padding:8px 12px;color:var(--muted);font-weight:500;">Total</th><th style="text-align:right;padding:8px 12px;color:var(--muted);font-weight:500;">Date</th></tr>';
+        '<tr style="border-bottom:1px solid var(--border);"><th style="text-align:left;padding:8px 12px;color:var(--muted);font-weight:500;">Customer</th><th style="text-align:left;padding:8px 12px;color:var(--muted);font-weight:500;">Series</th><th style="text-align:left;padding:8px 12px;color:var(--muted);font-weight:500;">Proforma</th><th style="text-align:right;padding:8px 12px;color:var(--muted);font-weight:500;">Total</th><th style="text-align:right;padding:8px 12px;color:var(--muted);font-weight:500;">Date</th><th style="padding:8px 12px;width:80px;"></th></tr>';
       rows.forEach(function(r) {
         var d = new Date(r.created_at);
         var dateStr = d.toLocaleDateString('en-IN', { day:'2-digit', month:'short', year:'numeric' });
         var total = r.total_price > 0 ? (r.order_type === 'INTERNATIONAL' ? '$' : '\u20B9') + Number(r.total_price).toLocaleString('en-IN') : '\u2014';
+        var actions = '';
+        if (r.has_pdf) {
+          actions += '<a href="/api/offers/' + r.id + '/pdf" title="Download PDF" style="color:var(--blue);text-decoration:none;margin-right:8px;font-size:14px;cursor:pointer;">\\u2913</a>';
+        }
+        actions += '<span onclick="offerDelete(' + r.id + ')" title="Delete" style="color:var(--muted);cursor:pointer;font-size:14px;opacity:0.6;transition:opacity 0.2s;" onmouseover="this.style.opacity=1;this.style.color=\\'#ef4444\\'" onmouseout="this.style.opacity=0.6;this.style.color=\\'var(--muted)\\'">\\u2715</span>';
         html += '<tr style="border-bottom:1px solid var(--border);">' +
           '<td style="padding:8px 12px;color:var(--text);">' + (r.customer_name || '\u2014') + '</td>' +
           '<td style="padding:8px 12px;color:var(--muted);">' + (r.series || '\u2014') + '</td>' +
           '<td style="padding:8px 12px;color:var(--muted);">' + (r.proforma_no || '\u2014') + '</td>' +
           '<td style="padding:8px 12px;text-align:right;color:var(--text);font-weight:500;">' + total + '</td>' +
-          '<td style="padding:8px 12px;text-align:right;color:var(--muted);">' + dateStr + '</td></tr>';
+          '<td style="padding:8px 12px;text-align:right;color:var(--muted);">' + dateStr + '</td>' +
+          '<td style="padding:8px 12px;text-align:right;">' + actions + '</td></tr>';
       });
       html += '</table>';
       el.innerHTML = html;
@@ -1640,6 +1652,14 @@ function offerLoadHistory() {
     });
 }
 offerLoadHistory();
+
+function offerDelete(id) {
+  if (!confirm('Delete this offer?')) return;
+  fetch('/api/offers/' + id, { method: 'DELETE' })
+    .then(function(r) { if (!r.ok) throw new Error('Delete failed'); return r.json(); })
+    .then(function() { offerLoadHistory(); })
+    .catch(function(err) { alert(err.message || 'Could not delete offer'); });
+}
 
 // ====== SETTINGS ======
 const SETTINGS_DASHBOARD_ID = GAP_DASHBOARD_ID;

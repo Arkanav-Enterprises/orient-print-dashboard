@@ -64,8 +64,14 @@ export async function setupTables() {
       order_type TEXT DEFAULT 'DOMESTIC',
       total_price NUMERIC DEFAULT 0,
       filename TEXT DEFAULT '',
+      pdf_data BYTEA,
       created_at TIMESTAMPTZ DEFAULT NOW()
     )
+  `;
+
+  // Migration: add pdf_data column if missing (for existing databases)
+  await sql`
+    ALTER TABLE offers ADD COLUMN IF NOT EXISTS pdf_data BYTEA
   `;
 
   // No FK — dashboard_id 0 is reserved for the static Printers Houst dashboard
