@@ -184,35 +184,39 @@ const SKILLS = [
     category: "sales",
     department: "Marketing & Sales",
     tier: "t2",
-    description: "Machine spec to professional offer document with calculated pricing from master spreadsheet, delivery terms, and domestic/international T&C. First working skill — demo complete.",
-    instructions: `You are the Orient Jet Offer Generator. When a team member provides a machine specification, generate a professional offer document.
+    description: "Machine spec to branded 8-page offer PDF. Two-step: Claude Project generates structured data, Python script produces branded PDF with boilerplate pages. LIVE.",
+    instructions: `You are the Orient Jet Offer Generator. When a team member provides a machine specification, generate structured output for the branded PDF template.
 
 WORKFLOW:
-1. Ask if the order is DOMESTIC or INTERNATIONAL (this determines which T&C to append)
-2. Identify the machine series (C-Series or L&P Series), resolution (600/1200 dpi), and head technology from the spec
-3. Look up pricing from the Price List Digital spreadsheet (match the correct sheet by series + resolution)
+1. Ask if the order is DOMESTIC or INTERNATIONAL (determines currency and T&C reference)
+2. Identify the machine series (C-Series or L&P Series), resolution (600/1200 dpi), and head technology
+3. Look up pricing from the Price List Digital spreadsheet (match correct sheet by series + resolution)
 4. Calculate: heads_per_color_per_side = ceil(print_width / head_coverage_mm), total_heads = that × colors × duplex_factor
 5. Calculate core costs (IDS × qty, Heads × qty, Electronics × qty) + add-on components
 6. Apply 20% gross margin: Offer Price = Total Cost / (1 - 0.20)
-7. Format the offer with machine spec table, pricing table, delivery terms, payment terms, and full T&C
+7. Output structured sections: Cover Data, Machine Specification, Equipment Pricing, Ink Pricing, Delivery & Payment
+
+OUTPUT feeds into generate_branded_offer.py which produces an 8-page branded PDF:
+Page 1: Cover (date, proforma no., customer, series) | Pages 2-7: Boilerplate (About Us, Orient Jet, Client logos, Press Config) | Page 8: Machine Spec + Equipment Pricing + T&C links + Thank You
 
 RULES:
-- Always show prices in Indian numbering (₹X,XX,XX,XXX)
+- Prices in Indian numbering ₹X,XX,XX,XXX (domestic) or $XXX,XXX.XX (international)
 - Never reveal internal cost prices or partner margin
 - Offer price = GM Price (20% margin). Never show Partner Price
-- Default delivery: 4 months. Override if user specifies different
-- Default payment: 50% advance + 50% before dispatch`,
+- Default delivery: 6 months. Override if user specifies different
+- Default payment: 50% advance + 50% before dispatch
+- T&C referenced via URL links (not appended inline)`,
     inputFields: [
       { name: "machine_spec", type: "string", description: "Full machine specification (series, resolution, head tech, width, duplex, colors, component quantities)", required: true },
       { name: "order_type", type: "string", description: "domestic or international", required: true },
       { name: "customer_name", type: "string", description: "Customer company name", required: false },
-      { name: "delivery_months", type: "number", description: "Custom delivery timeline in months (default: 4)", required: false },
+      { name: "delivery_months", type: "number", description: "Custom delivery timeline in months (default: 6)", required: false },
     ],
-    outputFormat: "Professional offer document with: company header, reference number, machine spec table, itemized pricing table with quantities and amounts, total offer price, delivery terms, payment terms, and complete Terms & Conditions (domestic or international)",
+    outputFormat: "Structured sections for branded PDF: (A) Cover Page Data (series, date, proforma no, customer), (B) Machine Specification bullets, (C) Equipment Pricing table with totals, (D) Ink Pricing, (E) Delivery & Payment terms. T&C referenced via URL links to tphorient.com.",
     examples: [
       {
         input: "Orient Jet C Series 600x600 dpi Kyocera RC, width 540 mm, Duplex, 4 colours, unwind unit qty 1, printing unit qty 1, ir drying qty 2, extra for wide web qty 1, coating + drying qty 1, rewind qty 1, rip + server + imposition software qty 1, sheeter qty 1, miscellaneous qty 0, installation & commissioning qty 1. Delivery 6 months.",
-        output: "Total Offer Price: ₹5,79,52,500 (Core: ₹2,91,72,000 + Add-ons: ₹1,71,90,000 = Cost ₹4,63,62,000 at 20% GM). Delivery: 6 months. Full domestic T&C attached."
+        output: "SERIES: C SERIES | TOTAL OFFER PRICE: ₹5,79,52,500 | 7 spec sections (Print Head, Electronic, Web Transport, Unwinder, IDS, RIP+Server, Finishing) | Ink: ₹3,000-4,000/ltr | Delivery: 6 months | T&C: tphorient.com/assets/pdf/domestic.pdf"
       }
     ],
     knowledgeFiles: ["KNOWLEDGE_Price_List_Digital.xlsx", "KNOWLEDGE_Pricing_Logic.md", "KNOWLEDGE_Domestic_TnC.md", "KNOWLEDGE_International_TnC.md"],
@@ -227,49 +231,42 @@ export async function POST() {
     await setupTables();
     results.push("Tables created/verified (including gap_resolutions)");
 
-    // 2. Generate HTML and upsert dashboard row
+    // 2. Upsert dashboard — check existence first, then insert or update
     const html = generateDashboardHTML(PRINTERS_HOUST_DATA);
-    const [dashboard] = await sql`
-      INSERT INTO dashboards (company_name, company_short, data, html)
-      VALUES (
-        ${PRINTERS_HOUST_DATA.companyName},
-        ${PRINTERS_HOUST_DATA.companyShort},
-        ${JSON.stringify(PRINTERS_HOUST_DATA)},
-        ${html}
-      )
-      ON CONFLICT DO NOTHING
-      RETURNING id
+    const [existing] = await sql`
+      SELECT id FROM dashboards WHERE company_name = ${PRINTERS_HOUST_DATA.companyName} LIMIT 1
     `;
-    let dashboardId = dashboard?.id;
-    if (dashboardId) {
-      results.push(`Dashboard inserted with id=${dashboardId}`);
+    let dashboardId: number;
 
-      // 3. Insert kanban state for all 20 epics
-      for (const epic of PRINTERS_HOUST_DATA.epics) {
-        await sql`
-          INSERT INTO kanban_state (dashboard_id, epic_id, col, checked)
-          VALUES (${dashboardId}, ${epic.id}, ${epic.column}, '[]'::jsonb)
-          ON CONFLICT (dashboard_id, epic_id) DO NOTHING
-        `;
-      }
-      results.push(`Kanban state inserted for ${PRINTERS_HOUST_DATA.epics.length} epics`);
+    if (existing) {
+      // Sync data + HTML so backfill changes (new skills, etc.) propagate
+      dashboardId = existing.id;
+      await sql`
+        UPDATE dashboards SET data = ${JSON.stringify(PRINTERS_HOUST_DATA)}, html = ${html}, updated_at = NOW()
+        WHERE id = ${dashboardId}
+      `;
+      results.push(`Dashboard id=${dashboardId} synced with latest data + HTML`);
     } else {
-      // Already exists — update HTML if missing
-      const [existing] = await sql`
-        UPDATE dashboards SET html = ${html}, data = ${JSON.stringify(PRINTERS_HOUST_DATA)}, updated_at = NOW()
-        WHERE company_name = ${PRINTERS_HOUST_DATA.companyName} AND (html IS NULL OR html = '')
+      // First time — insert
+      const [row] = await sql`
+        INSERT INTO dashboards (company_name, company_short, data, html)
+        VALUES (${PRINTERS_HOUST_DATA.companyName}, ${PRINTERS_HOUST_DATA.companyShort},
+                ${JSON.stringify(PRINTERS_HOUST_DATA)}, ${html})
         RETURNING id
       `;
-      dashboardId = existing?.id;
-      if (dashboardId) {
-        results.push(`Dashboard id=${dashboardId} updated with HTML`);
-      } else {
-        // Get existing id for kanban backfill
-        const [row] = await sql`SELECT id FROM dashboards WHERE company_name = ${PRINTERS_HOUST_DATA.companyName}`;
-        dashboardId = row?.id;
-        results.push("Dashboard already exists with HTML (skipped)");
-      }
+      dashboardId = row.id;
+      results.push(`Dashboard inserted with id=${dashboardId}`);
     }
+
+    // 3. Ensure kanban state for all epics
+    for (const epic of PRINTERS_HOUST_DATA.epics) {
+      await sql`
+        INSERT INTO kanban_state (dashboard_id, epic_id, col, checked)
+        VALUES (${dashboardId}, ${epic.id}, ${epic.column}, '[]'::jsonb)
+        ON CONFLICT (dashboard_id, epic_id) DO NOTHING
+      `;
+    }
+    results.push(`Kanban state ensured for ${PRINTERS_HOUST_DATA.epics.length} epics`);
 
     // 4. Insert skills (upsert by slug) — includes full data for pre-populated skills
     let skillsInserted = 0;
@@ -285,7 +282,11 @@ export async function POST() {
         VALUES (${skill.slug}, ${skill.name}, ${skill.category}, ${skill.department}, ${skill.tier}, ${skill.description},
                 ${instructions}, ${JSON.stringify(inputFields)}, ${outputFormat},
                 ${JSON.stringify(examples)}, ${JSON.stringify(knowledgeFiles)})
-        ON CONFLICT (slug) DO NOTHING
+        ON CONFLICT (slug) DO UPDATE SET
+          name = EXCLUDED.name, category = EXCLUDED.category, department = EXCLUDED.department,
+          tier = EXCLUDED.tier, description = EXCLUDED.description, instructions = EXCLUDED.instructions,
+          input_fields = EXCLUDED.input_fields, output_format = EXCLUDED.output_format,
+          examples = EXCLUDED.examples, knowledge_files = EXCLUDED.knowledge_files
         RETURNING id
       `;
       if (row) skillsInserted++;
