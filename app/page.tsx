@@ -33,15 +33,15 @@ export default async function HomePage() {
             AI integration rollout dashboards for your clients
           </p>
         </div>
-        <Link
-          href="/new"
-          className="bg-white text-black font-medium text-sm py-2 px-4 rounded-lg hover:bg-neutral-200 transition-colors flex items-center gap-2"
+        <span
+          className="bg-neutral-800 text-neutral-500 font-medium text-sm py-2 px-4 rounded-lg flex items-center gap-2 cursor-not-allowed opacity-50"
+          title="Dashboard creation is currently disabled"
         >
           <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
             <path d="M7 1v12M1 7h12" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
           </svg>
           New Dashboard
-        </Link>
+        </span>
       </div>
 
       {error ? (
