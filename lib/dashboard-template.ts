@@ -6,24 +6,40 @@ function escapeHtml(s: string): string {
 
 export function generateDashboardHTML(data: DashboardData): string {
   const tierCounts = [0, 0, 0, 0];
-  const deptCounts: number[] = [];
   const skillCounts = { exists: 0, partial: 0, builtin: 0, custom: 0 };
   const complexityCounts = { beginner: 0, intermediate: 0, advanced: 0 };
   const deptShortNames: Record<string, string> = {};
 
+  const tierSkillMatrix = [
+    { exists: 0, builtin: 0, partial: 0, custom: 0 },
+    { exists: 0, builtin: 0, partial: 0, custom: 0 },
+    { exists: 0, builtin: 0, partial: 0, custom: 0 },
+    { exists: 0, builtin: 0, partial: 0, custom: 0 },
+  ];
+  let readyCount = 0;
+  let needsWorkCount = 0;
+
   data.departments.forEach((dept, i) => {
-    deptCounts[i] = dept.useCases.length;
     const short = dept.name.length > 6 ? dept.name.split(/[\s&]/)[0].slice(0, 4) : dept.name;
     deptShortNames[dept.name] = short;
     dept.useCases.forEach((uc) => {
       const tierIdx = parseInt(uc.tier[1]) - 1;
-      if (tierIdx >= 0 && tierIdx < 4) tierCounts[tierIdx]++;
+      if (tierIdx >= 0 && tierIdx < 4) {
+        tierCounts[tierIdx]++;
+        tierSkillMatrix[tierIdx][uc.skillStatus]++;
+      }
       skillCounts[uc.skillStatus]++;
       complexityCounts[uc.complexity]++;
+      if (uc.skillStatus === "exists" || uc.skillStatus === "builtin") {
+        readyCount++;
+      } else {
+        needsWorkCount++;
+      }
     });
   });
 
-  const deptColors = ["#0070f3", "#3b82f6", "#f97316", "#22c55e", "#f43f5e", "#06b6d4", "#eab308"];
+  const blockerGaps = data.gaps.filter(g => g.label.toUpperCase().includes("BLOCKER"));
+  const blockedEpics = data.epics.filter(e => e.column === "blocked");
 
   const deptCardsHtml = data.departments
     .map(
@@ -110,9 +126,6 @@ export function generateDashboardHTML(data: DashboardData): string {
     });
   });
   const skillCreatorSeedsJson = JSON.stringify(skillCreatorSeeds);
-
-  const deptChartData = `[${deptCounts.join(",")}]`;
-  const deptChartColors = `[${deptColors.slice(0, data.departments.length).map((c) => `'${c}'`).join(",")}]`;
 
   return `<!DOCTYPE html>
 <html lang="en">
@@ -342,8 +355,72 @@ export function generateDashboardHTML(data: DashboardData): string {
   .search-result:hover { border-color: var(--border-hover); background: var(--bg-card-hover); }
   .search-result .sr-name { font-size: 13px; color: var(--text-primary); }
   .search-result .sr-meta { font-size: 11px; color: var(--text-tertiary); margin-left: auto; }
+  /* Overview: Readiness Strip */
+  .readiness-strip { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-bottom: 32px; }
+  .readiness-card { background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius); padding: 24px; cursor: pointer; transition: border-color 0.15s, background 0.15s; position: relative; border-left: 3px solid var(--border); }
+  .readiness-card:hover { border-color: var(--border-hover); background: var(--bg-card-hover); }
+  .readiness-card.rc-green { border-left-color: var(--green); }
+  .readiness-card.rc-amber { border-left-color: var(--orange); }
+  .readiness-card.rc-red { border-left-color: var(--red); }
+  .readiness-count { font-size: 36px; font-weight: 700; letter-spacing: -1px; line-height: 1; margin-bottom: 4px; }
+  .rc-green .readiness-count { color: var(--green); }
+  .rc-amber .readiness-count { color: var(--orange); }
+  .rc-red .readiness-count { color: var(--red); }
+  .readiness-label { font-size: 14px; font-weight: 600; color: var(--text-primary); margin-bottom: 2px; }
+  .readiness-sub { font-size: 12px; color: var(--text-tertiary); }
+  .readiness-arrow { position: absolute; top: 24px; right: 20px; color: var(--text-quaternary); font-size: 16px; transition: transform 0.15s; }
+  .readiness-card:hover .readiness-arrow { transform: translateX(3px); color: var(--text-secondary); }
+
+  /* Overview: Skill × Tier Matrix */
+  .skill-tier-matrix { background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius); padding: 24px; margin-bottom: 32px; }
+  .skill-tier-matrix h3 { font-size: 14px; font-weight: 600; color: var(--text-primary); margin-bottom: 20px; }
+  .matrix-legend { display: flex; gap: 16px; margin-bottom: 16px; flex-wrap: wrap; }
+  .matrix-legend-item { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--text-secondary); }
+  .matrix-legend-dot { width: 10px; height: 10px; border-radius: 3px; }
+  .matrix-row { display: flex; align-items: center; gap: 16px; padding: 10px 0; border-bottom: 1px solid var(--border-light); cursor: pointer; transition: background 0.15s; border-radius: var(--radius-sm); }
+  .matrix-row:last-child { border-bottom: none; }
+  .matrix-row:hover { background: var(--bg-card-hover); }
+  .matrix-label { width: 140px; flex-shrink: 0; font-size: 13px; font-weight: 500; color: var(--text-secondary); }
+  .matrix-bar { flex: 1; display: flex; height: 24px; border-radius: 4px; overflow: hidden; background: var(--border-light); }
+  .matrix-segment { height: 100%; transition: flex 0.3s; min-width: 0; }
+  .matrix-segment.seg-exists { background: var(--green); }
+  .matrix-segment.seg-builtin { background: var(--blue); }
+  .matrix-segment.seg-partial { background: var(--yellow); }
+  .matrix-segment.seg-custom { background: var(--red); }
+  .matrix-fraction { width: 80px; flex-shrink: 0; text-align: right; font-size: 13px; color: var(--text-secondary); font-weight: 500; }
+  .matrix-fraction strong { color: var(--text-primary); }
+
+  /* Overview: Tier readiness pill */
+  .tc-readiness { display: inline-block; font-size: 11px; font-weight: 600; padding: 3px 10px; border-radius: 10px; margin-top: 10px; }
+  .tc-readiness.ready-high { background: rgba(34,197,94,0.15); color: var(--green); }
+  .tc-readiness.ready-mid { background: rgba(234,179,8,0.15); color: var(--yellow); }
+  .tc-readiness.ready-low { background: rgba(239,68,68,0.15); color: var(--red); }
+
+  /* Overview: Action Items */
+  .action-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 32px; }
+  .action-card { background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius); padding: 20px; }
+  .action-card h3 { font-size: 14px; font-weight: 600; color: var(--text-primary); margin-bottom: 16px; }
+  .action-list { display: flex; flex-direction: column; gap: 8px; }
+  .action-item { display: flex; align-items: center; gap: 10px; padding: 10px 12px; border: 1px solid var(--border-light); border-radius: var(--radius-sm); cursor: pointer; transition: all 0.15s; }
+  .action-item:hover { border-color: var(--border-hover); background: var(--bg-card-hover); }
+  .action-icon { width: 24px; height: 24px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 12px; flex-shrink: 0; }
+  .action-icon.ai-red { background: rgba(239,68,68,0.15); color: var(--red); }
+  .action-icon.ai-orange { background: rgba(249,115,22,0.15); color: var(--orange); }
+  .action-icon.ai-blue { background: rgba(59,130,246,0.15); color: var(--blue); }
+  .action-text { font-size: 13px; color: var(--text-secondary); flex: 1; }
+  .action-text strong { color: var(--text-primary); font-weight: 500; }
+  .action-arrow { color: var(--text-quaternary); font-size: 14px; }
+  .action-empty { font-size: 13px; color: var(--text-tertiary); padding: 10px 0; }
+  .arch-toggle-header { display: flex; align-items: center; justify-content: space-between; cursor: pointer; }
+  .arch-toggle-header h3 { margin-bottom: 0; }
+  .arch-toggle-chevron { color: var(--text-quaternary); transition: transform 0.2s; font-size: 14px; }
+  .arch-toggle-body { display: none; margin-top: 16px; }
+  .arch-toggle-body.open { display: block; }
+  .arch-toggle-body p { font-size: 13px; color: var(--text-secondary); line-height: 1.7; }
+  .arch-toggle-body p strong { color: var(--text-primary); }
+
   @media (max-width: 1100px) { .timeline-grid { grid-template-columns: repeat(2, 1fr); } .kanban-board { grid-template-columns: repeat(2, 1fr); } }
-  @media (max-width: 800px) { .sidebar { display: none; } .main-area { margin-left: 0; } .content { padding: 20px; } .timeline-grid { grid-template-columns: 1fr; } .charts-grid { grid-template-columns: 1fr; } .kanban-board { grid-template-columns: 1fr; } .dept-grid { grid-template-columns: 1fr; } .kpi-grid { grid-template-columns: repeat(2, 1fr); } }
+  @media (max-width: 800px) { .sidebar { display: none; } .main-area { margin-left: 0; } .content { padding: 20px; } .timeline-grid { grid-template-columns: 1fr; } .charts-grid { grid-template-columns: 1fr; } .kanban-board { grid-template-columns: 1fr; } .dept-grid { grid-template-columns: 1fr; } .kpi-grid { grid-template-columns: repeat(2, 1fr); } .readiness-strip { grid-template-columns: 1fr; } .action-grid { grid-template-columns: 1fr; } .matrix-label { width: 100px; } }
 
   /* Skill Creator */
   .sc-layout { display: flex; gap: 0; min-height: 600px; }
@@ -464,90 +541,101 @@ export function generateDashboardHTML(data: DashboardData): string {
       <div id="overview" class="page active">
         <div class="page-header">
           <div class="page-title">AI Integration Rollout</div>
-          <div class="page-desc">${escapeHtml(data.subtitle)}</div>
+          <div class="page-desc">${escapeHtml(data.subtitle)} &mdash; ${data.totalUseCases} use cases across ${data.totalDepartments} departments, ${escapeHtml(data.timeline)} timeline.</div>
         </div>
-        <div class="kpi-grid">
-          <div class="kpi-card"><div class="kpi-label">Total Use Cases</div><div class="kpi-value">${data.totalUseCases}</div></div>
-          <div class="kpi-card"><div class="kpi-label">Departments</div><div class="kpi-value">${data.totalDepartments}</div></div>
-          <div class="kpi-card"><div class="kpi-label">Rollout Phases</div><div class="kpi-value">${data.totalPhases}</div></div>
-          <div class="kpi-card"><div class="kpi-label">Quick Wins (T1)</div><div class="kpi-value">${data.quickWins}</div><div class="kpi-sub">Ready to deploy</div></div>
-          <div class="kpi-card"><div class="kpi-label">Custom Skills</div><div class="kpi-value">${data.customSkillsCount}</div><div class="kpi-sub">To be built</div></div>
-          <div class="kpi-card"><div class="kpi-label">Timeline</div><div class="kpi-value">${escapeHtml(data.timeline)}</div><div class="kpi-sub">Full deployment</div></div>
-        </div>
-        <div class="progress-bar-wrap">
-          <div class="progress-bar-header">
-            <span class="progress-bar-label">Overall Rollout Progress</span>
-            <span class="progress-bar-pct" id="overallPct">0%</span>
+
+        <!-- Section 1: Readiness Strip -->
+        <div class="readiness-strip">
+          <div class="readiness-card rc-green" onclick="goToPage('skills')">
+            <div class="readiness-count">${readyCount}</div>
+            <div class="readiness-label">Ready to Deploy</div>
+            <div class="readiness-sub">Existing or built-in skills</div>
+            <div class="readiness-arrow">&rarr;</div>
           </div>
-          <div class="progress-bar-track">
-            <div class="progress-bar-fill" id="progressT1" style="width:0;background:var(--green)"></div>
-            <div class="progress-bar-fill" id="progressT2" style="width:0;background:var(--blue)"></div>
-            <div class="progress-bar-fill" id="progressT3" style="width:0;background:var(--orange)"></div>
-            <div class="progress-bar-fill" id="progressT4" style="width:0;background:var(--purple)"></div>
+          <div class="readiness-card rc-amber" onclick="goToPage('skills')">
+            <div class="readiness-count">${needsWorkCount}</div>
+            <div class="readiness-label">Needs Work</div>
+            <div class="readiness-sub">${data.customSkillsCount} custom builds required</div>
+            <div class="readiness-arrow">&rarr;</div>
+          </div>
+          <div class="readiness-card rc-red" onclick="goToPage('gaps')">
+            <div class="readiness-count">${data.gaps.length}</div>
+            <div class="readiness-label">Blockers &amp; Risks</div>
+            <div class="readiness-sub">Unresolved items</div>
+            <div class="readiness-arrow">&rarr;</div>
           </div>
         </div>
-        <div class="rec-box">
-          <h3>Architecture Recommendation</h3>
-          <p>${data.architectureRec}</p>
+
+        <!-- Section 2: Skill × Tier Matrix -->
+        <div class="skill-tier-matrix">
+          <h3>Skill Readiness by Tier</h3>
+          <div class="matrix-legend">
+            <div class="matrix-legend-item"><div class="matrix-legend-dot" style="background:var(--green)"></div>Existing</div>
+            <div class="matrix-legend-item"><div class="matrix-legend-dot" style="background:var(--blue)"></div>Built-in</div>
+            <div class="matrix-legend-item"><div class="matrix-legend-dot" style="background:var(--yellow)"></div>Partial</div>
+            <div class="matrix-legend-item"><div class="matrix-legend-dot" style="background:var(--red)"></div>Custom</div>
+          </div>
+          ${data.tiers.map((t, i) => {
+            const m = tierSkillMatrix[i];
+            const total = m.exists + m.builtin + m.partial + m.custom;
+            const ready = m.exists + m.builtin;
+            return `<div class="matrix-row" onclick="goToPage('departments');setTimeout(function(){var b=document.querySelector('#deptFilterBar .filter-pill[onclick*=\\'t${i + 1}\\']');if(b)b.click();},50)">
+            <div class="matrix-label">${escapeHtml(t.name)}: ${escapeHtml(t.label)}</div>
+            <div class="matrix-bar">
+              ${m.exists ? `<div class="matrix-segment seg-exists" style="flex:${m.exists}"></div>` : ""}
+              ${m.builtin ? `<div class="matrix-segment seg-builtin" style="flex:${m.builtin}"></div>` : ""}
+              ${m.partial ? `<div class="matrix-segment seg-partial" style="flex:${m.partial}"></div>` : ""}
+              ${m.custom ? `<div class="matrix-segment seg-custom" style="flex:${m.custom}"></div>` : ""}
+            </div>
+            <div class="matrix-fraction"><strong>${ready}</strong>/${total} ready</div>
+          </div>`;
+          }).join("")}
         </div>
+
+        <!-- Section 3: Phased Rollout Timeline -->
         <div class="section-header"><div class="section-title">Phased Rollout Timeline</div></div>
         <div class="timeline-grid">
           ${data.tiers
             .map(
-              (t, i) => `
+              (t, i) => {
+                const m = tierSkillMatrix[i];
+                const total = m.exists + m.builtin + m.partial + m.custom;
+                const ready = m.exists + m.builtin;
+                const pct = total > 0 ? Math.round((ready / total) * 100) : 0;
+                const readyClass = pct >= 75 ? "ready-high" : pct >= 25 ? "ready-mid" : "ready-low";
+                return `
           <div class="timeline-card t${i + 1}">
             <div class="tc-tier">${escapeHtml(t.name)}</div>
             <div class="tc-title">${escapeHtml(t.label)}</div>
             <div class="tc-time">${escapeHtml(t.timeline)}</div>
             <div class="tc-count">${t.count}</div>
             <div class="tc-count-label">use cases</div>
+            <div class="tc-readiness ${readyClass}">${ready}/${total} skills ready</div>
             <div class="tc-desc">${escapeHtml(t.description)}</div>
-          </div>`
+          </div>`;
+              }
             )
             .join("")}
         </div>
-        <div class="charts-grid">
-          <div class="chart-card">
-            <h3>Use Cases by Tier</h3>
-            <div class="donut-wrap">
-              <canvas id="tierChart" width="160" height="160"></canvas>
-              <div class="donut-legend">
-                ${data.tiers.map((t, i) => `<div class="dl-item"><div class="dl-dot" style="background:${["var(--green)", "var(--blue)", "var(--orange)", "var(--purple)"][i]}"></div>${escapeHtml(t.name)}: ${escapeHtml(t.label)} <span class="dl-count">(${t.count})</span></div>`).join("")}
-              </div>
+
+        <!-- Section 4: Action Items -->
+        <div class="action-grid">
+          <div class="action-card">
+            <h3>Next Steps</h3>
+            <div class="action-list">
+              ${blockerGaps.length > 0 ? blockerGaps.map(g => `<div class="action-item" onclick="goToPage('gaps')"><div class="action-icon ai-red">!</div><div class="action-text"><strong>Blocker:</strong> ${escapeHtml(g.title)}</div><div class="action-arrow">&rarr;</div></div>`).join("") : ""}
+              ${data.customSkills.length > 0 ? data.customSkills.slice(0, 5).map(s => `<div class="action-item" onclick="goToPage('skillcreator')"><div class="action-icon ai-orange">+</div><div class="action-text"><strong>Build:</strong> ${escapeHtml(s.name)}</div><div class="action-arrow">&rarr;</div></div>`).join("") : ""}
+              ${blockedEpics.length > 0 ? blockedEpics.map(e => `<div class="action-item" onclick="goToPage('kanban')"><div class="action-icon ai-blue">&#x25A0;</div><div class="action-text"><strong>Blocked:</strong> ${escapeHtml(e.name)}</div><div class="action-arrow">&rarr;</div></div>`).join("") : ""}
+              ${blockerGaps.length === 0 && data.customSkills.length === 0 && blockedEpics.length === 0 ? `<div class="action-empty">No outstanding action items.</div>` : ""}
             </div>
           </div>
-          <div class="chart-card">
-            <h3>Use Cases by Department</h3>
-            <div class="donut-wrap">
-              <canvas id="deptChart" width="160" height="160"></canvas>
-              <div class="donut-legend">
-                ${data.departments.map((d, i) => `<div class="dl-item"><div class="dl-dot" style="background:${deptColors[i % deptColors.length]}"></div>${escapeHtml(d.name)} <span class="dl-count">(${d.useCases.length})</span></div>`).join("")}
-              </div>
+          <div class="action-card">
+            <div class="arch-toggle-header" onclick="toggleArchNote()">
+              <h3>Architecture Note</h3>
+              <span class="arch-toggle-chevron" id="archChevron">&#9654;</span>
             </div>
-          </div>
-        </div>
-        <div class="charts-grid">
-          <div class="chart-card">
-            <h3>Skill Coverage</h3>
-            <div class="donut-wrap">
-              <canvas id="skillChart" width="160" height="160"></canvas>
-              <div class="donut-legend">
-                <div class="dl-item"><div class="dl-dot" style="background:var(--green)"></div>Existing Match <span class="dl-count">(${skillCounts.exists})</span></div>
-                <div class="dl-item"><div class="dl-dot" style="background:var(--yellow)"></div>Partial / Adapt <span class="dl-count">(${skillCounts.partial})</span></div>
-                <div class="dl-item"><div class="dl-dot" style="background:var(--blue)"></div>Built-in <span class="dl-count">(${skillCounts.builtin})</span></div>
-                <div class="dl-item"><div class="dl-dot" style="background:var(--red)"></div>Custom Build <span class="dl-count">(${skillCounts.custom})</span></div>
-              </div>
-            </div>
-          </div>
-          <div class="chart-card">
-            <h3>Complexity Distribution</h3>
-            <div class="donut-wrap">
-              <canvas id="complexChart" width="160" height="160"></canvas>
-              <div class="donut-legend">
-                <div class="dl-item"><div class="dl-dot" style="background:var(--green)"></div>Beginner <span class="dl-count">(${complexityCounts.beginner})</span></div>
-                <div class="dl-item"><div class="dl-dot" style="background:var(--orange)"></div>Intermediate <span class="dl-count">(${complexityCounts.intermediate})</span></div>
-                <div class="dl-item"><div class="dl-dot" style="background:var(--red)"></div>Advanced <span class="dl-count">(${complexityCounts.advanced})</span></div>
-              </div>
+            <div class="arch-toggle-body" id="archBody">
+              <p>${data.architectureRec}</p>
             </div>
           </div>
         </div>
@@ -816,6 +904,27 @@ function navigate(id) {
   document.getElementById('searchResults').classList.remove('visible');
 }
 
+function goToPage(id) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+  var pageEl = document.getElementById(id);
+  if (pageEl) pageEl.classList.add('active');
+  var navEl = document.querySelector('.nav-item[onclick="navigate(\\'' + id + '\\')"]');
+  if (navEl) navEl.classList.add('active');
+  currentPage = id;
+  var names = { overview:'Overview', departments:'Departments', skills:'Skill Mapping', projects:'Projects', kanban:'Roadmap Board', gaps:'Gaps & Risks', skillcreator:'Skill Creator', offergenerator:'Offer Generator', settings:'Settings' };
+  document.getElementById('breadcrumb').textContent = names[id] || id;
+  document.getElementById('searchInput').value = '';
+  document.getElementById('searchResults').classList.remove('visible');
+}
+
+function toggleArchNote() {
+  var body = document.getElementById('archBody');
+  var chevron = document.getElementById('archChevron');
+  body.classList.toggle('open');
+  chevron.style.transform = body.classList.contains('open') ? 'rotate(90deg)' : '';
+}
+
 const SEARCH_DATA = [];
 document.querySelectorAll('.use-case .uc-name').forEach(el => {
   const dept = el.closest('.dept-card')?.querySelector('.dept-name')?.textContent || '';
@@ -904,11 +1013,6 @@ function drawDonut(canvasId, data, colors) {
   ctx.font = '500 10px Inter, sans-serif';
   ctx.fillText('TOTAL', cx, cy + 10);
 }
-
-drawDonut('tierChart', [${tierCounts.join(",")}], ['#22c55e', '#3b82f6', '#f97316', '#a855f7']);
-drawDonut('deptChart', ${deptChartData}, ${deptChartColors});
-drawDonut('skillChart', [${skillCounts.exists}, ${skillCounts.partial}, ${skillCounts.builtin}, ${skillCounts.custom}], ['#22c55e', '#eab308', '#3b82f6', '#ef4444']);
-drawDonut('complexChart', [${complexityCounts.beginner}, ${complexityCounts.intermediate}, ${complexityCounts.advanced}], ['#22c55e', '#f97316', '#ef4444']);
 
 const EPICS = ${epicsJson};
 
