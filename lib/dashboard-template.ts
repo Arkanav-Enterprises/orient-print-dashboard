@@ -1100,7 +1100,7 @@ function toggleProject(el) {
 }
 
 // ====== PROJECT DOCUMENTS ======
-var DOC_DASHBOARD_ID = GAP_DASHBOARD_ID;
+var DOC_DASHBOARD_ID = 0; // replaced at serve-time like GAP_DASHBOARD_ID
 
 function loadProjectDocs(projectNumber) {
   fetch('/api/documents?dashboardId=' + DOC_DASHBOARD_ID + '&projectNumber=' + projectNumber)
