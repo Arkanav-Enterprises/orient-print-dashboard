@@ -76,8 +76,12 @@ export function generateDashboardHTML(data: DashboardData): string {
               return `<div class="proj-epic"><span class="proj-epic-name">${escapeHtml(e.name)}</span><span class="proj-epic-status" style="color:${colColors[e.column] || "var(--text-tertiary)"}">${colLabels[e.column] || e.column}</span><span class="proj-epic-tasks">${e.items.length} tasks</span></div>`;
             }).join("")
           : `<div class="proj-no-epics">No linked epics yet</div>`;
+        const knowledgeItems = p.knowledge.split(",").map(s => s.trim()).filter(Boolean);
+        const knowledgeChecklistHtml = knowledgeItems.map((item, idx) =>
+          `<div class="proj-doc-check" id="projDocCheck-${p.number}-${idx}"><span class="proj-doc-check-icon">&#9675;</span><span class="proj-doc-check-text">${escapeHtml(item)}</span></div>`
+        ).join("");
         return `
-          <div class="project-item" onclick="toggleProject(this)">
+          <div class="project-item" data-project="${p.number}" onclick="toggleProject(this)">
             <div class="proj-header">
               <div class="proj-header-left">
                 <span class="proj-dept-badge">${escapeHtml(p.department)}</span>
@@ -94,13 +98,22 @@ export function generateDashboardHTML(data: DashboardData): string {
                   <div class="proj-detail-value">${escapeHtml(p.useCaseRefs)}</div>
                 </div>
                 <div class="proj-detail-section">
-                  <div class="proj-detail-label">Knowledge Required</div>
-                  <div class="proj-detail-value">${escapeHtml(p.knowledge)}</div>
-                </div>
-                <div class="proj-detail-section">
                   <div class="proj-detail-label">Skills</div>
                   <div class="proj-detail-value">${escapeHtml(p.skills)}</div>
                 </div>
+                <div class="proj-detail-section">
+                  <div class="proj-detail-label">Tier</div>
+                  <div class="proj-detail-value">${escapeHtml(p.tier)}</div>
+                </div>
+              </div>
+              <div class="proj-docs-section" onclick="event.stopPropagation()">
+                <div class="proj-detail-label">Required Documents <span class="proj-doc-counter" id="projDocCounter-${p.number}"></span></div>
+                <div class="proj-docs-checklist">${knowledgeChecklistHtml}</div>
+                <div class="proj-docs-dropzone" id="projDocsDropzone-${p.number}" onclick="document.getElementById('projDocsInput-${p.number}').click()">
+                  <div class="proj-docs-dropzone-text">Drop files here or click to upload</div>
+                  <input type="file" id="projDocsInput-${p.number}" multiple style="display:none" onchange="uploadProjectDocs(${p.number}, this.files)">
+                </div>
+                <div class="proj-docs-list" id="projDocsList-${p.number}"></div>
               </div>
               <div class="proj-epics-section">
                 <div class="proj-detail-label">Related Epics on Roadmap</div>
@@ -310,6 +323,26 @@ export function generateDashboardHTML(data: DashboardData): string {
   .proj-actions { display: flex; gap: 8px; }
   .proj-roadmap-btn { padding: 8px 16px; border-radius: var(--radius-sm); font-size: 12px; font-weight: 500; cursor: pointer; border: 1px solid var(--accent); background: transparent; color: var(--accent); transition: all 0.15s; font-family: inherit; }
   .proj-roadmap-btn:hover { background: var(--accent-light); }
+  .proj-docs-section { margin-bottom: 16px; padding: 16px; background: var(--bg); border: 1px solid var(--border-light); border-radius: var(--radius); }
+  .proj-doc-counter { font-size: 11px; color: var(--text-tertiary); font-weight: 400; text-transform: none; letter-spacing: 0; }
+  .proj-docs-checklist { display: flex; flex-direction: column; gap: 6px; margin-bottom: 12px; }
+  .proj-doc-check { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--text-secondary); }
+  .proj-doc-check-icon { font-size: 14px; color: var(--text-quaternary); flex-shrink: 0; }
+  .proj-doc-check.matched .proj-doc-check-icon { color: var(--green); }
+  .proj-doc-check.matched .proj-doc-check-text { color: var(--text-tertiary); text-decoration: line-through; }
+  .proj-docs-dropzone { border: 1px dashed var(--border); border-radius: var(--radius-sm); padding: 16px; text-align: center; cursor: pointer; transition: border-color 0.15s, background 0.15s; }
+  .proj-docs-dropzone:hover, .proj-docs-dropzone.drag-over { border-color: var(--accent); background: var(--accent-light); }
+  .proj-docs-dropzone-text { font-size: 12px; color: var(--text-quaternary); }
+  .proj-docs-list { margin-top: 10px; display: flex; flex-direction: column; gap: 6px; }
+  .proj-doc-row { display: flex; align-items: center; gap: 10px; padding: 8px 10px; background: var(--bg-card); border: 1px solid var(--border-light); border-radius: var(--radius-sm); }
+  .proj-doc-icon { color: var(--accent); font-size: 14px; flex-shrink: 0; }
+  .proj-doc-name { font-size: 13px; color: var(--text-secondary); flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .proj-doc-date { font-size: 11px; color: var(--text-quaternary); flex-shrink: 0; }
+  .proj-doc-btn { background: none; border: none; cursor: pointer; font-size: 12px; padding: 4px 8px; border-radius: 4px; transition: background 0.15s; font-family: inherit; }
+  .proj-doc-dl { color: var(--accent); }
+  .proj-doc-dl:hover { background: var(--accent-light); }
+  .proj-doc-del { color: var(--red); }
+  .proj-doc-del:hover { background: rgba(239,68,68,0.1); }
   .gap-list { display: flex; flex-direction: column; gap: 8px; }
   .gap-card { background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius); padding: 20px; border-left: 3px solid var(--red); cursor: pointer; transition: border-color 0.2s, background 0.15s; }
   .gap-card:hover { background: var(--bg-card-hover); }
@@ -980,8 +1013,100 @@ function toggleArchNote() {
 }
 
 function toggleProject(el) {
+  var wasExpanded = el.classList.contains('expanded');
   el.classList.toggle('expanded');
+  if (!wasExpanded) {
+    var pn = el.dataset.project;
+    if (pn) loadProjectDocs(parseInt(pn));
+  }
 }
+
+// ====== PROJECT DOCUMENTS ======
+var DOC_DASHBOARD_ID = GAP_DASHBOARD_ID;
+
+function loadProjectDocs(projectNumber) {
+  fetch('/api/documents?dashboardId=' + DOC_DASHBOARD_ID + '&projectNumber=' + projectNumber)
+    .then(function(r) { return r.json(); })
+    .then(function(docs) {
+      var listEl = document.getElementById('projDocsList-' + projectNumber);
+      var counterEl = document.getElementById('projDocCounter-' + projectNumber);
+      if (!listEl) return;
+      if (docs.length === 0) {
+        listEl.innerHTML = '';
+        if (counterEl) counterEl.textContent = '(0 uploaded)';
+      } else {
+        if (counterEl) counterEl.textContent = '(' + docs.length + ' uploaded)';
+        listEl.innerHTML = docs.map(function(d) {
+          var date = new Date(d.uploaded_at).toLocaleDateString();
+          return '<div class="proj-doc-row">' +
+            '<span class="proj-doc-icon">&#128196;</span>' +
+            '<span class="proj-doc-name">' + d.filename + '</span>' +
+            '<span class="proj-doc-date">' + date + '</span>' +
+            '<button class="proj-doc-btn proj-doc-dl" onclick="event.stopPropagation();downloadProjectDoc(' + d.id + ')">Download</button>' +
+            '<button class="proj-doc-btn proj-doc-del" onclick="event.stopPropagation();deleteProjectDoc(' + d.id + ',' + projectNumber + ')">Delete</button>' +
+            '</div>';
+        }).join('');
+      }
+      // Cross-reference filenames to checklist items
+      var filenames = docs.map(function(d) { return d.filename.toLowerCase(); });
+      var checks = document.querySelectorAll('[id^="projDocCheck-' + projectNumber + '-"]');
+      checks.forEach(function(check) {
+        var text = check.querySelector('.proj-doc-check-text')?.textContent?.toLowerCase() || '';
+        var words = text.split(/\s+/).filter(function(w) { return w.length > 2; });
+        var matched = filenames.some(function(fn) {
+          return words.some(function(w) { return fn.includes(w); });
+        });
+        if (matched) {
+          check.classList.add('matched');
+          check.querySelector('.proj-doc-check-icon').innerHTML = '&#10003;';
+        } else {
+          check.classList.remove('matched');
+          check.querySelector('.proj-doc-check-icon').innerHTML = '&#9675;';
+        }
+      });
+    })
+    .catch(function(err) { console.error('Failed to load docs:', err); });
+}
+
+function uploadProjectDocs(projectNumber, files) {
+  if (!files || files.length === 0) return;
+  var uploads = Array.from(files).map(function(file) {
+    var fd = new FormData();
+    fd.append('dashboardId', String(DOC_DASHBOARD_ID));
+    fd.append('projectNumber', String(projectNumber));
+    fd.append('file', file);
+    return fetch('/api/documents', { method: 'POST', body: fd }).then(function(r) { return r.json(); });
+  });
+  Promise.all(uploads).then(function() {
+    loadProjectDocs(projectNumber);
+    var input = document.getElementById('projDocsInput-' + projectNumber);
+    if (input) input.value = '';
+  });
+}
+
+function downloadProjectDoc(docId) {
+  window.open('/api/documents/' + docId + '/download', '_blank');
+}
+
+function deleteProjectDoc(docId, projectNumber) {
+  fetch('/api/documents/' + docId, { method: 'DELETE' })
+    .then(function() { loadProjectDocs(projectNumber); });
+}
+
+// Set up drag-and-drop for all project dropzones
+document.addEventListener('DOMContentLoaded', function() {
+  document.querySelectorAll('.proj-docs-dropzone').forEach(function(zone) {
+    zone.addEventListener('dragover', function(e) { e.preventDefault(); zone.classList.add('drag-over'); });
+    zone.addEventListener('dragleave', function() { zone.classList.remove('drag-over'); });
+    zone.addEventListener('drop', function(e) {
+      e.preventDefault(); e.stopPropagation();
+      zone.classList.remove('drag-over');
+      var card = zone.closest('.project-item');
+      var pn = card ? parseInt(card.dataset.project) : 0;
+      if (pn && e.dataTransfer.files.length) uploadProjectDocs(pn, e.dataTransfer.files);
+    });
+  });
+});
 
 const SEARCH_DATA = [];
 document.querySelectorAll('.use-case .uc-name').forEach(el => {

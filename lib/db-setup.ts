@@ -91,4 +91,15 @@ export async function setupTables() {
       UNIQUE(dashboard_id, gap_id)
     )
   `;
+
+  await sql`
+    CREATE TABLE IF NOT EXISTS documents (
+      id SERIAL PRIMARY KEY,
+      dashboard_id INTEGER NOT NULL,
+      project_number INTEGER NOT NULL,
+      filename TEXT NOT NULL,
+      file_data BYTEA NOT NULL,
+      uploaded_at TIMESTAMPTZ DEFAULT NOW()
+    )
+  `;
 }
