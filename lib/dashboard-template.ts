@@ -64,6 +64,64 @@ export function generateDashboardHTML(data: DashboardData): string {
     )
     .join("\n");
 
+  const knowledgeTooltips: Record<string, string> = {
+    "pricing database": "Complete pricing spreadsheet with machine configurations, component costs, margin percentages, and discount tiers. Excel or CSV format preferred.",
+    "product catalog": "Full product catalog with model names, specifications, available configurations, and high-res images. PDF or structured document.",
+    "machine specs": "Technical specification sheets for each machine model — dimensions, print speeds, resolution options, media compatibility, and power requirements.",
+    "brand guide": "Brand guidelines PDF including logos (all formats), color palette (hex/RGB), typography rules, tone of voice, and usage examples.",
+    "brand guidelines": "Brand guidelines PDF including logos (all formats), color palette (hex/RGB), typography rules, tone of voice, and usage examples.",
+    "email templates": "5-10 real email examples currently used by the team — sales outreach, follow-ups, quotes, internal comms. Shows current tone and format.",
+    "past decks": "3-5 recent PowerPoint/Keynote presentations used for sales pitches, reviews, or reporting. Needed to match existing style and structure.",
+    "keyword lists": "Target SEO keywords and search terms your team tracks. Include search volume and rankings if available. Spreadsheet format.",
+    "competitor urls": "List of 5-10 competitor websites with specific product/service pages to monitor for SEO benchmarking and content gap analysis.",
+    "historical win rates": "Past 12-24 months of deal data — won/lost, deal size, sales cycle length, by product line. CRM export or spreadsheet.",
+    "seasonal patterns": "Monthly/quarterly revenue data showing seasonal trends. At least 2 years of history for pattern recognition.",
+    "pipeline exports": "Current sales pipeline export from your CRM — deal stage, value, expected close date, probability. CSV or Excel.",
+    "lead tracker/crm exports": "Current lead tracking spreadsheet or CRM export with contact info, deal status, last interaction, and notes.",
+    "icp": "Ideal Customer Profile document — target industries, company size, geography, job titles, pain points, and buying triggers.",
+    "design standards": "Engineering design standards document — tolerances, material specs, naming conventions, approval workflows.",
+    "autolisp examples": "Sample AutoLISP or Python scripts currently used for CAD automation. Shows existing patterns and naming conventions.",
+    "component databases": "Component/parts database with part numbers, dimensions, materials, and supplier info. Excel or database export.",
+    "component library with part numbers/costs": "Complete parts list with part numbers, descriptions, unit costs, preferred suppliers, and lead times. Excel format.",
+    "approved vendor list": "Master vendor list with contact info, materials/services supplied, payment terms, rating/performance history.",
+    "rfq/po templates": "Current RFQ and Purchase Order templates (Word/Excel) showing your standard format, terms, and required fields.",
+    "inventory policies": "Inventory management policies — min/max levels, reorder points, safety stock rules, ABC classification.",
+    "lead times": "Supplier lead time data by component/material — average, minimum, and maximum delivery times.",
+    "reorder levels": "Current reorder point settings per SKU/component with historical consumption rates.",
+    "production targets": "Monthly/weekly production targets by product line — units, capacity utilization, shift schedules.",
+    "bom templates per model": "Bill of Materials templates for each machine model showing assembly hierarchy, part quantities, and sub-assemblies.",
+    "machine manuals": "OEM machine manuals, maintenance guides, and troubleshooting flowcharts. PDF format.",
+    "historical failure data": "Maintenance logs showing past breakdowns — machine, failure type, root cause, downtime, repair action. Spreadsheet.",
+    "gst rules": "GST rate schedule applicable to your products/services, including HSN/SAC code mappings and exemptions.",
+    "hsn/sac codes": "Complete HSN/SAC code mapping for all products and services with applicable GST rates.",
+    "invoice templates": "Current invoice templates (Word/Excel/PDF) showing your standard format, numbering, and required fields.",
+    "financial templates": "Financial report templates — P&L, balance sheet, cash flow formats currently used for board/management reporting.",
+    "chart formats": "Preferred chart styles and formatting for financial presentations — colors, chart types, data label conventions.",
+    "role templates": "Job description templates for common roles, including standard sections, qualifications format, and company boilerplate.",
+    "salary benchmarks": "Salary data by role/level — current pay bands, market benchmarks, benefits structure. Confidential spreadsheet.",
+    "salary structures": "Employee salary structure — basic, HRA, allowances, deductions breakdown. Template or sample pay slip.",
+    "pf/esi/tds rules": "Current PF, ESI, and TDS calculation rules, exemption limits, and employer contribution rates for the latest fiscal year.",
+    "erp schema": "Database schema documentation — table names, column definitions, relationships, and key stored procedures.",
+    "database structure": "ER diagram or schema export showing tables, primary/foreign keys, and data types used in your ERP system.",
+    "api docs": "API documentation for your ERP system — endpoints, authentication, request/response formats, rate limits.",
+    "technical manuals": "Machine service manuals with troubleshooting trees, wiring diagrams, and maintenance procedures. PDF or digital format.",
+    "service bulletins": "Recent service bulletins, technical advisories, and known-issue reports issued by OEM or your service team.",
+    "parts catalog": "Spare parts catalog with part numbers, descriptions, compatibility (which machines), pricing, and availability status.",
+    "travel policy": "Company travel policy document — booking rules, per diem rates, approval workflow, preferred airlines/hotels, expense limits.",
+    "preferred vendors": "List of preferred travel vendors — airlines, hotels, cab services with corporate rates and booking contacts.",
+    "expense templates": "Current expense report template (Excel/PDF) showing required fields, categories, approval signatures, and reimbursement rules.",
+  };
+
+  function getKnowledgeTooltip(item: string): string {
+    const key = item.toLowerCase().trim();
+    if (knowledgeTooltips[key]) return knowledgeTooltips[key];
+    // Fuzzy match: check if any key is contained in the item or vice versa
+    for (const [k, v] of Object.entries(knowledgeTooltips)) {
+      if (key.includes(k) || k.includes(key)) return v;
+    }
+    return "Upload the relevant document, spreadsheet, or reference material for this knowledge area.";
+  }
+
   const projectsHtml = data.projects
     .map(
       (p) => {
@@ -77,9 +135,10 @@ export function generateDashboardHTML(data: DashboardData): string {
             }).join("")
           : `<div class="proj-no-epics">No linked epics yet</div>`;
         const knowledgeItems = p.knowledge.split(",").map(s => s.trim()).filter(Boolean);
-        const knowledgeChecklistHtml = knowledgeItems.map((item, idx) =>
-          `<div class="proj-doc-check" id="projDocCheck-${p.number}-${idx}"><span class="proj-doc-check-icon">&#9675;</span><span class="proj-doc-check-text">${escapeHtml(item)}</span></div>`
-        ).join("");
+        const knowledgeChecklistHtml = knowledgeItems.map((item, idx) => {
+          const tooltip = escapeHtml(getKnowledgeTooltip(item));
+          return `<div class="proj-doc-check" id="projDocCheck-${p.number}-${idx}"><span class="proj-doc-check-icon">&#9675;</span><span class="proj-doc-check-text">${escapeHtml(item)}</span><span class="proj-doc-tip" tabindex="0">&#9432;<span class="proj-doc-tip-text">${tooltip}</span></span></div>`;
+        }).join("");
         return `
           <div class="project-item" data-project="${p.number}" onclick="toggleProject(this)">
             <div class="proj-header">
@@ -330,6 +389,9 @@ export function generateDashboardHTML(data: DashboardData): string {
   .proj-doc-check-icon { font-size: 14px; color: var(--text-quaternary); flex-shrink: 0; }
   .proj-doc-check.matched .proj-doc-check-icon { color: var(--green); }
   .proj-doc-check.matched .proj-doc-check-text { color: var(--text-tertiary); text-decoration: line-through; }
+  .proj-doc-tip { position: relative; color: var(--text-quaternary); font-size: 14px; cursor: help; margin-left: 4px; flex-shrink: 0; }
+  .proj-doc-tip-text { display: none; position: absolute; bottom: calc(100% + 8px); left: 50%; transform: translateX(-50%); background: var(--bg-elevated); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 10px 14px; font-size: 12px; color: var(--text-secondary); line-height: 1.5; width: 280px; z-index: 200; box-shadow: 0 4px 16px rgba(0,0,0,0.5); pointer-events: none; }
+  .proj-doc-tip:hover .proj-doc-tip-text, .proj-doc-tip:focus .proj-doc-tip-text { display: block; }
   .proj-docs-dropzone { border: 1px dashed var(--border); border-radius: var(--radius-sm); padding: 16px; text-align: center; cursor: pointer; transition: border-color 0.15s, background 0.15s; }
   .proj-docs-dropzone:hover, .proj-docs-dropzone.drag-over { border-color: var(--accent); background: var(--accent-light); }
   .proj-docs-dropzone-text { font-size: 12px; color: var(--text-quaternary); }
