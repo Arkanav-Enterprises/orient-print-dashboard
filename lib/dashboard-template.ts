@@ -48,7 +48,7 @@ export function generateDashboardHTML(data: DashboardData): string {
             <div class="dept-header"><span class="dept-name">${escapeHtml(dept.name)}</span><span class="dept-count">${dept.useCases.length} use cases</span></div>
             ${dept.useCases
               .map(
-                (uc) => `<div class="use-case" data-tier="${uc.tier}"><div class="tier-dot ${uc.tier}"></div><span class="uc-name">${escapeHtml(uc.name)}</span><span class="uc-complexity ${uc.complexity}">${uc.complexity.charAt(0).toUpperCase() + uc.complexity.slice(1)}</span></div>`
+                (uc) => `<div class="use-case${uc.description ? ' has-desc' : ''}" data-tier="${uc.tier}" ${uc.description ? 'onclick="toggleUcDesc(this)"' : ''}><div class="uc-main"><div class="tier-dot ${uc.tier}"></div><span class="uc-name">${escapeHtml(uc.name)}</span><span class="uc-complexity ${uc.complexity}">${uc.complexity.charAt(0).toUpperCase() + uc.complexity.slice(1)}</span>${uc.description ? '<span class="uc-expand-icon">▸</span>' : ''}</div>${uc.description ? `<div class="uc-desc">${escapeHtml(uc.description)}</div>` : ''}</div>`
               )
               .join("\n")}
           </div>`
@@ -59,7 +59,7 @@ export function generateDashboardHTML(data: DashboardData): string {
     .flatMap((dept) =>
       dept.useCases.map(
         (uc) =>
-          `<tr data-status="${uc.skillStatus}"><td>${escapeHtml(deptShortNames[dept.name] || dept.name)}</td><td>${escapeHtml(uc.name)}</td><td>${escapeHtml(uc.skill)}</td><td><span class="badge ${uc.skillStatus}">${({ exists: "Match", partial: "Partial", builtin: "Built-in", custom: "Custom" })[uc.skillStatus]}</span></td><td>${escapeHtml(uc.skillNotes)}</td></tr>`
+          `<tr data-status="${uc.skillStatus}"${uc.description ? ' class="has-detail" onclick="toggleSkillDetail(this)"' : ''}><td>${escapeHtml(deptShortNames[dept.name] || dept.name)}</td><td>${escapeHtml(uc.name)}${uc.description ? ' <span class="detail-toggle">▸</span>' : ''}</td><td>${escapeHtml(uc.skill)}</td><td><span class="badge ${uc.skillStatus}">${({ exists: "Match", partial: "Partial", builtin: "Built-in", custom: "Custom" })[uc.skillStatus]}</span></td><td>${escapeHtml(uc.skillNotes)}</td></tr>${uc.description ? `<tr class="skill-detail-row"><td colspan="5"><div class="skill-detail-text">${escapeHtml(uc.description)}</div></td></tr>` : ''}`
       )
     )
     .join("\n");
@@ -324,8 +324,15 @@ export function generateDashboardHTML(data: DashboardData): string {
   .dept-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; padding-bottom: 12px; border-bottom: 1px solid var(--border); }
   .dept-name { font-size: 14px; font-weight: 600; color: var(--text-primary); }
   .dept-count { font-size: 11px; color: var(--text-secondary); background: rgba(255,255,255,0.05); padding: 3px 10px; border-radius: 20px; }
-  .use-case { padding: 8px 0; border-bottom: 1px solid var(--border-light); display: flex; align-items: center; gap: 10px; }
+  .use-case { padding: 8px 0; border-bottom: 1px solid var(--border-light); display: flex; flex-direction: column; gap: 0; }
   .use-case:last-child { border-bottom: none; }
+  .uc-main { display: flex; align-items: center; gap: 10px; width: 100%; }
+  .use-case.has-desc { cursor: pointer; }
+  .use-case.has-desc:hover { background: rgba(255,255,255,0.03); margin: 0 -8px; padding: 8px 8px; border-radius: 6px; }
+  .uc-expand-icon { margin-left: auto; font-size: 10px; color: var(--text-secondary); transition: transform 0.2s; flex-shrink: 0; }
+  .use-case.expanded .uc-expand-icon { transform: rotate(90deg); }
+  .uc-desc { display: none; font-size: 12px; color: var(--text-secondary); line-height: 1.5; padding: 8px 0 4px 18px; }
+  .use-case.expanded .uc-desc { display: block; }
   .tier-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
   .tier-dot.t1 { background: var(--green); } .tier-dot.t2 { background: var(--blue); }
   .tier-dot.t3 { background: var(--orange); } .tier-dot.t4 { background: var(--purple); }
@@ -352,6 +359,13 @@ export function generateDashboardHTML(data: DashboardData): string {
   .badge.partial { background: rgba(234,179,8,0.1); color: var(--yellow); }
   .badge.custom { background: rgba(239,68,68,0.1); color: var(--red); }
   .badge.builtin { background: rgba(59,130,246,0.1); color: var(--blue); }
+  tr.has-detail { cursor: pointer; }
+  tr.has-detail:hover td { background: rgba(255,255,255,0.04) !important; }
+  .detail-toggle { font-size: 10px; color: var(--text-secondary); margin-left: 4px; display: inline-block; transition: transform 0.2s; }
+  tr.has-detail.expanded .detail-toggle { transform: rotate(90deg); }
+  .skill-detail-row { display: none; }
+  tr.has-detail.expanded + .skill-detail-row { display: table-row; }
+  .skill-detail-text { font-size: 12px; color: var(--text-secondary); line-height: 1.5; padding: 8px 12px; background: rgba(255,255,255,0.02); border-radius: 4px; }
   .project-list { display: flex; flex-direction: column; gap: 8px; }
   .project-item { background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius); padding: 20px; transition: border-color 0.15s, background 0.15s; cursor: pointer; }
   .project-item:hover { border-color: var(--border-hover); background: var(--bg-card-hover); }
@@ -1053,6 +1067,8 @@ function navigate(id) {
   document.getElementById('searchResults').classList.remove('visible');
 }
 
+function toggleUcDesc(el) { el.classList.toggle('expanded'); }
+function toggleSkillDetail(el) { el.classList.toggle('expanded'); }
 function goToPage(id) {
   document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
   document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
@@ -1217,7 +1233,12 @@ function filterDept(tier, btn) {
 function filterSkills(status, btn) {
   document.querySelectorAll('#skillFilterBar .filter-pill').forEach(p => p.classList.remove('active'));
   btn.classList.add('active');
-  document.querySelectorAll('#skillsTable tbody tr').forEach(tr => { tr.style.display = (status === 'all' || tr.dataset.status === status) ? '' : 'none'; });
+  document.querySelectorAll('#skillsTable tbody tr').forEach(tr => {
+    if (tr.classList.contains('skill-detail-row')) { tr.style.display = 'none'; return; }
+    var show = (status === 'all' || tr.dataset.status === status);
+    tr.style.display = show ? '' : 'none';
+    if (!show) tr.classList.remove('expanded');
+  });
 }
 let kanbanFilter = 'all';
 function filterKanban(tier, btn) {

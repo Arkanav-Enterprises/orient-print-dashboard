@@ -1,5 +1,6 @@
 export interface UseCase {
   name: string;
+  description?: string;
   tier: "t1" | "t2" | "t3" | "t4";
   complexity: "beginner" | "intermediate" | "advanced";
   skill: string;
@@ -111,6 +112,7 @@ export const DASHBOARD_JSON_SCHEMA = {
               type: "object",
               properties: {
                 name: { type: "string" },
+                description: { type: "string", description: "Detailed description of the use case from the master plan" },
                 tier: { type: "string", enum: ["t1", "t2", "t3", "t4"] },
                 complexity: { type: "string", enum: ["beginner", "intermediate", "advanced"] },
                 skill: { type: "string", description: "Matching skill name or — if none" },
