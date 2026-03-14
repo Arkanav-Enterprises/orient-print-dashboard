@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { parseClaudeOutput, generateOfferPdf } from "@/lib/offer-generator";
+import { parseClaudeOutput, generateOfferPdf, auditParsedData } from "@/lib/offer-generator";
 import JSZip from "jszip";
 
 // Extract plain text from a .docx file buffer
@@ -51,10 +51,14 @@ export async function POST(request: Request) {
     }
 
     const data = parseClaudeOutput(text);
+    const warnings = auditParsedData(data);
 
     if (data.pricing_items.length === 0 && data.specifications.length === 0) {
       return NextResponse.json(
-        { error: "Could not parse pricing or specification data. Make sure the file contains Sections A\u2013E." },
+        {
+          error: "Could not parse pricing or specification data from the uploaded file.",
+          warnings: warnings.missing,
+        },
         { status: 400 }
       );
     }
@@ -68,7 +72,7 @@ export async function POST(request: Request) {
       .replace(/[^a-zA-Z0-9_-]/g, "");
     const filename = `Orient_Jet_${safeName}_${data.series.replace(/\s+/g, "_")}.pdf`;
 
-    // Return parsed metadata as JSON headers so the client can save to offers table
+    // Return parsed metadata + warnings as response headers
     return new NextResponse(pdfBytes as unknown as BodyInit, {
       headers: {
         "Content-Type": "application/pdf",
@@ -79,6 +83,7 @@ export async function POST(request: Request) {
         "X-Offer-Type": data.order_type || "",
         "X-Offer-Total": String(data.total_price || 0),
         "X-Offer-Filename": filename,
+        "X-Offer-Warnings": warnings.missing.length > 0 ? warnings.missing.join("; ") : "",
       },
     });
   } catch (err: unknown) {
