@@ -65,6 +65,9 @@ export interface OfferData {
   gst_amount: number;
   currency: string;
   total_price?: number;
+  general_terms: string;          // Full General Terms and Conditions of Sale text
+  warranty_statement: string;     // Full LIMITED WARRANTY STATEMENT text
+  thank_you: string;              // Thank You closing text
 }
 
 export interface ParseWarnings {
@@ -140,6 +143,9 @@ export function parseClaudeOutput(text: string): OfferData {
     gst_rate: "",
     gst_amount: 0,
     currency: "INR",
+    general_terms: "",
+    warranty_statement: "",
+    thank_you: "",
   };
 
   text = normalizeText(text);
@@ -166,6 +172,25 @@ export function parseClaudeOutput(text: string): OfferData {
 
   const svcMatch = text.match(/(We\s+commit\s+to\s+providing\s+exceptional\s+service[\s\S]*?cost\.)/i);
   if (svcMatch) data.service_commitment = svcMatch[1].replace(/\s+/g, " ").trim();
+
+  // General Terms and Conditions of Sale — full legal text
+  // Stop at "APPLICABILITY This LIMITED WARRANTY" which is the WARRANTY section boundary
+  const gtcMatch = text.match(/GENERAL\s+TERMS\s+AND\s+CONDITIONS\s+OF\s+SALE[\s\S]*?(?=APPLICABILITY\s+This\s+LIMITED\s+WARRANTY|\nTHANK\s+YOU|$)/i);
+  if (gtcMatch) {
+    data.general_terms = gtcMatch[0].trim();
+  }
+
+  // LIMITED WARRANTY STATEMENT (starts with "APPLICABILITY This LIMITED WARRANTY...")
+  const warMatch = text.match(/APPLICABILITY\s+This\s+LIMITED\s+WARRANTY\s+STATEMENT[\s\S]*?(?=\nTHANK\s+YOU|$)/i);
+  if (warMatch) {
+    data.warranty_statement = warMatch[0].trim();
+  }
+
+  // Thank You closing
+  const thankMatch = text.match(/THANK\s+YOU[\s\S]*$/i);
+  if (thankMatch) {
+    data.thank_you = thankMatch[0].trim();
+  }
 
   // Compute total if not found explicitly: sum of pricing items + GST
   if (!data.total_price && data.pricing_items.length > 0) {
@@ -608,6 +633,7 @@ const GREY_MED = rgb(0.467, 0.467, 0.467);
 const BLACK = rgb(0, 0, 0);
 const WHITE = rgb(1, 1, 1);
 const LINK_BLUE = rgb(0, 0.4, 0.8);
+const DARK_BLUE = rgb(0, 0.2, 0.4);
 const LIGHT_GREY = rgb(0.867, 0.867, 0.867);
 const DOT_GREY = rgb(0.667, 0.667, 0.667);
 
@@ -615,9 +641,11 @@ function sanitize(text: string): string {
   let result = text
     .replace(/₹/g, "Rs.")
     .replace(/[❖◆◇♦♢]/g, "*")
-    .replace(/[–—]/g, "-")
-    .replace(/['']/g, "'")
-    .replace(/[""]/g, '"');
+    .replace(/[\u2013\u2014]/g, "-")     // en-dash, em-dash
+    .replace(/[\u2018\u2019\u201B]/g, "'")  // curly single quotes
+    .replace(/[\u201C\u201D\u201E]/g, '"')  // curly double quotes
+    .replace(/\u2026/g, "...")            // ellipsis
+    .replace(/\u00A0/g, " ");            // non-breaking space
 
   const stripped = result.match(/[^\x00-\xFF]/g);
   if (stripped && stripped.length > 0) {
@@ -983,6 +1011,89 @@ function drawSpecAndPricing(
   const intW = textWidth(regular, "https://tphorient.com/assets/pdf/International.pdf ", 7);
   page.drawText("for any orders outside of India.", { x: 100 + flW + intW, y, font: regular, size: 7, color: BLACK });
 
+  // ── Full General Terms and Conditions of Sale ──
+  if (data.general_terms) {
+    page = newPage();
+    y = PAGE_H - 60;
+
+    // Render dense legal text paragraph by paragraph
+    const paragraphs = data.general_terms.split(/\n\n+/);
+    const TC_FONT_SIZE = 6.5;
+    const TC_LINE_HEIGHT = 9;
+    const TC_HEADING_SIZE = 10;
+
+    for (let pi = 0; pi < paragraphs.length; pi++) {
+      const para = paragraphs[pi].trim();
+      if (!para) continue;
+
+      // Detect heading lines (ALL CAPS, short)
+      const isHeading = /^[A-Z\s&,]+$/.test(para) && para.length < 80;
+
+      if (isHeading) {
+        if (y < PAGE_BOTTOM + 30) { page = newPage(); y = PAGE_H - 60; }
+        y -= 14;
+        page.drawText(para, { x: 100, y, font: bold, size: TC_HEADING_SIZE, color: DARK_BLUE });
+        y -= 6;
+      } else {
+        // Wrap and render paragraph as flowing text
+        const lines = wrapText(regular, para.replace(/\s+/g, " "), TC_FONT_SIZE, CONTENT_WIDTH);
+        for (const line of lines) {
+          if (y < PAGE_BOTTOM) { page = newPage(); y = PAGE_H - 60; }
+          page.drawText(line, { x: 100, y, font: regular, size: TC_FONT_SIZE, color: BLACK });
+          y -= TC_LINE_HEIGHT;
+        }
+        y -= 3; // paragraph spacing
+      }
+    }
+  }
+
+  // ── WARRANTY STATEMENT ──
+  if (data.warranty_statement) {
+    if (y < PAGE_BOTTOM + 40) { page = newPage(); y = PAGE_H - 60; }
+
+    const paragraphs = data.warranty_statement.split(/\n\n+/);
+    const TC_FONT_SIZE = 6.5;
+    const TC_LINE_HEIGHT = 9;
+
+    for (const para of paragraphs) {
+      const text = para.trim();
+      if (!text) continue;
+
+      const isHeading = /^[A-Z\s&,]+$/.test(text) && text.length < 80;
+
+      if (isHeading) {
+        if (y < PAGE_BOTTOM + 30) { page = newPage(); y = PAGE_H - 60; }
+        y -= 14;
+        page.drawText(text, { x: 100, y, font: bold, size: 10, color: DARK_BLUE });
+        y -= 6;
+      } else {
+        const lines = wrapText(regular, text.replace(/\s+/g, " "), TC_FONT_SIZE, CONTENT_WIDTH);
+        for (const line of lines) {
+          if (y < PAGE_BOTTOM) { page = newPage(); y = PAGE_H - 60; }
+          page.drawText(line, { x: 100, y, font: regular, size: TC_FONT_SIZE, color: BLACK });
+          y -= TC_LINE_HEIGHT;
+        }
+        y -= 3;
+      }
+    }
+  }
+
+  // ── Thank You page ──
+  {
+    page = newPage();
+    y = PAGE_H - 200;
+
+    page.drawText("THANK YOU", { x: 100, y, font: bold, size: 24, color: DARK_BLUE });
+    y -= 40;
+    page.drawText("We look forward to a successful partnership.", { x: 100, y, font: regular, size: 12, color: DARK_BLUE });
+    y -= 50;
+    page.drawText("THE PRINTERS HOUSE PRIVATE LIMITED", { x: 100, y, font: bold, size: 10, color: BLACK });
+    y -= 16;
+    page.drawText("22/1, Mathura Road, Ballabgarh, Sikri Industrial Area, Faridabad, Haryana - 121004", { x: 100, y, font: regular, size: 9, color: BLACK });
+    y -= 14;
+    page.drawText("www.tphorient.com", { x: 100, y, font: regular, size: 9, color: LINK_BLUE });
+  }
+
   return pages;
 }
 
@@ -1010,6 +1121,9 @@ export async function generateOfferPdf(rawData: OfferData): Promise<Uint8Array> 
     delivery_terms: sanitize(rawData.delivery_terms),
     payment_terms: rawData.payment_terms.map(sanitize),
     price_validity: sanitize(rawData.price_validity),
+    general_terms: sanitize(rawData.general_terms),
+    warranty_statement: sanitize(rawData.warranty_statement),
+    thank_you: sanitize(rawData.thank_you),
     specifications: rawData.specifications.map(s => ({
       name: sanitize(s.name),
       details: s.details.map(sanitize),
