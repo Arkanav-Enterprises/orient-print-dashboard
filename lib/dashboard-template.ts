@@ -908,7 +908,7 @@ export function generateDashboardHTML(data: DashboardData): string {
         <!-- Section 4: Action Items -->
         <div class="action-section">
           <h3 class="action-section-title">Next Steps</h3>
-          <div class="action-list action-list-2col">
+          <div class="action-list-2col">
             ${blockerGaps.length > 0 ? blockerGaps.map(g => `<div class="action-item" onclick="goToPage('gaps')"><div class="action-icon ai-red">!</div><div class="action-text"><strong>Blocker:</strong> ${escapeHtml(g.title)}</div><div class="action-arrow">&rarr;</div></div>`).join("") : ""}
             ${data.customSkills.length > 0 ? data.customSkills.slice(0, 5).map(s => `<div class="action-item" onclick="goToPage('skillcreator')"><div class="action-icon ai-orange">+</div><div class="action-text"><strong>Build:</strong> ${escapeHtml(s.name)}</div><div class="action-arrow">&rarr;</div></div>`).join("") : ""}
             ${blockedEpics.length > 0 ? blockedEpics.map(e => `<div class="action-item" onclick="goToPage('kanban')"><div class="action-icon ai-blue">&#x25A0;</div><div class="action-text"><strong>Blocked:</strong> ${escapeHtml(e.name)}</div><div class="action-arrow">&rarr;</div></div>`).join("") : ""}
