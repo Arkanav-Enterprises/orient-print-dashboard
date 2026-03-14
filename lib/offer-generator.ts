@@ -1,14 +1,16 @@
 /**
- * Offer Generator — parse structured output and build branded PDF.
+ * Offer Generator — parse DOCX/Claude output and build branded PDF.
  *
- * Uses pdf-lib to generate cover + spec + pricing pages, then merges with
- * template PDF boilerplate pages.
+ * Flow: DOCX upload → JSZip text extraction → parseClaudeOutput() → generateOfferPdf()
  *
  * Key design decisions:
  * - Specs and pricing flow across multiple pages (no truncation)
- * - All text is word-wrapped to prevent overflow into adjacent columns
- * - Parsing warns on missing content so failures are visible
- * - WinAnsi sanitization logs stripped characters for debugging
+ * - All text is word-wrapped to prevent column overflow
+ * - Ink prices support "[Price on request]" text values
+ * - Delivery/payment terms parsed and rendered
+ * - GST shown as separate line in pricing
+ * - Machine subtitle shown on cover page
+ * - Content audit warns on missing fields
  */
 
 import fs from "fs";
@@ -18,8 +20,6 @@ import { PDFDocument, rgb, StandardFonts, PDFPage, PDFFont, PDFImage, degrees } 
 // A4 in points
 const PAGE_W = 595.27;
 const PAGE_H = 841.89;
-
-// Minimum Y before we overflow to a new page (bottom margin)
 const PAGE_BOTTOM = 80;
 
 const ASSETS_BASE = path.join(process.cwd(), "Offer_Generator_Project", "template_assets");
@@ -39,6 +39,7 @@ interface PricingItem {
 interface InkPrice {
   description: string;
   price: number;
+  price_text: string; // "[Price on request]" or formatted amount
 }
 
 export interface OfferData {
@@ -49,12 +50,19 @@ export interface OfferData {
   customer_address: string;
   order_type: string;
   machine_description: string;
+  machine_subtitle: string;       // "4 Colour Duplex | 540 mm Print Width\n600×600 dpi | Kyocera RC"
   specifications: Specification[];
   pricing_items: PricingItem[];
   pricing_note: string;
   ink_prices: InkPrice[];
+  ink_note: string;               // "Additional GST @18% applicable on ink pricing"
   installation_terms: string;
   service_commitment: string;
+  delivery_terms: string;         // "4 months from the date of advance payment received."
+  payment_terms: string[];        // ["50% advance...", "Balance 50%..."]
+  price_validity: string;         // "Prices valid for 30 days from the date of this offer"
+  gst_rate: string;               // "18%"
+  gst_amount: number;
   currency: string;
   total_price?: number;
 }
@@ -94,19 +102,19 @@ function fmtPrice(amount: number, currency: string): string {
 
 function parseAmount(s: string): number {
   if (!s) return 0;
-  s = s.replace(/[₹$Rs.\s,*]/g, "");
+  // Strip currency symbols, spaces, commas — but only from amount strings
+  s = s.replace(/[₹$\s,*]/g, "").replace(/^Rs\.?/i, "");
   if (!s || s === "-") return 0;
   return s.includes(".") ? parseFloat(s) : parseInt(s, 10);
 }
 
-/** Normalize text: collapse whitespace, trim lines, remove zero-width chars */
 function normalizeText(text: string): string {
   return text
-    .replace(/\u200B/g, "")       // zero-width space
-    .replace(/\u00A0/g, " ")      // non-breaking space → regular space
-    .replace(/\r\n/g, "\n")       // CRLF → LF
-    .replace(/[ \t]+/g, " ")      // collapse horizontal whitespace
-    .replace(/\n{3,}/g, "\n\n");  // max 2 consecutive newlines
+    .replace(/\u200B/g, "")
+    .replace(/\u00A0/g, " ")
+    .replace(/\r\n/g, "\n")
+    .replace(/[ \t]+/g, " ")
+    .replace(/\n{3,}/g, "\n\n");
 }
 
 export function parseClaudeOutput(text: string): OfferData {
@@ -118,16 +126,22 @@ export function parseClaudeOutput(text: string): OfferData {
     customer_address: "[Address]",
     order_type: "DOMESTIC",
     machine_description: "",
+    machine_subtitle: "",
     specifications: [],
     pricing_items: [],
     pricing_note: "",
     ink_prices: [],
+    ink_note: "",
     installation_terms: "",
     service_commitment: "",
+    delivery_terms: "",
+    payment_terms: [],
+    price_validity: "",
+    gst_rate: "",
+    gst_amount: 0,
     currency: "INR",
   };
 
-  // Normalize before any parsing
   text = normalizeText(text);
 
   const hasSections = /SECTION\s*[AB]/i.test(text);
@@ -140,17 +154,28 @@ export function parseClaudeOutput(text: string): OfferData {
 
   data.currency = data.order_type.toUpperCase().includes("INTERNATIONAL") ? "USD" : "INR";
 
-  // Installation terms — flexible matching
-  const installMatch = text.match(/(Installation\s*:?\s*By\s+Factory[\s\S]*?Engineers\.)/i);
-  if (installMatch) data.installation_terms = installMatch[1].replace(/\s+/g, " ").trim();
+  // Installation terms — match the full paragraph, not just until "Engineers."
+  const installMatch = text.match(/\nInstallation\s*\n([\s\S]*?)(?=\nService\s+Commitment|\nGeneral\s+Terms|$)/i);
+  if (installMatch) {
+    data.installation_terms = installMatch[1].replace(/\s+/g, " ").trim();
+  } else {
+    // Fallback: old pattern
+    const fallback = text.match(/(Installation\s*:?\s*By\s+Factory[\s\S]*?(?:buyer|provided by the buyer)\.)/i);
+    if (fallback) data.installation_terms = fallback[1].replace(/\s+/g, " ").trim();
+  }
 
   const svcMatch = text.match(/(We\s+commit\s+to\s+providing\s+exceptional\s+service[\s\S]*?cost\.)/i);
   if (svcMatch) data.service_commitment = svcMatch[1].replace(/\s+/g, " ").trim();
 
+  // Compute total if not found explicitly: sum of pricing items + GST
+  if (!data.total_price && data.pricing_items.length > 0) {
+    const itemTotal = data.pricing_items.reduce((sum, p) => sum + p.price, 0);
+    data.total_price = itemTotal + data.gst_amount;
+  }
+
   return data;
 }
 
-/** Audit parsed data and return warnings for missing fields */
 export function auditParsedData(data: OfferData): ParseWarnings {
   const warnings: ParseWarnings = { missing: [], stripped: [] };
 
@@ -163,6 +188,8 @@ export function auditParsedData(data: OfferData): ParseWarnings {
   if (data.customer_name === "[Customer Name]") warnings.missing.push("customer_name (using placeholder)");
   if (data.ink_prices.length === 0) warnings.missing.push("ink_prices (no ink pricing found)");
   if (!data.installation_terms) warnings.missing.push("installation_terms");
+  if (!data.delivery_terms) warnings.missing.push("delivery_terms");
+  if (data.payment_terms.length === 0) warnings.missing.push("payment_terms");
 
   for (const w of warnings.missing) {
     console.warn(`[Offer Parser] Missing: ${w}`);
@@ -174,7 +201,6 @@ export function auditParsedData(data: OfferData): ParseWarnings {
 // ── Format 1: Claude Enterprise structured output with SECTION markers ──
 
 function parseSectioned(text: string, data: OfferData) {
-  // Section A: Cover
   const coverRe = /SECTION\s*A[\s\S]*?```\s*([\s\S]*?)```/i;
   const coverBlock = text.match(coverRe);
   if (coverBlock) {
@@ -202,11 +228,10 @@ function parseSectioned(text: string, data: OfferData) {
     data.order_type = m("ORDER_TYPE") || data.order_type;
   }
 
-  // Machine description
   const descMatch = text.match(/MACHINE_DESCRIPTION\s*:\s*"?([^"\n]+)"?/i);
   if (descMatch) data.machine_description = descMatch[1].trim();
 
-  // Section B: Specs (pipe-delimited table)
+  // Section B: Specs
   const sectionB = text.match(/SECTION\s*B[\s\S]*?(?=SECTION\s*C|$)/i);
   if (sectionB) {
     const rows = [...sectionB[0].matchAll(/\|\s*([^|]+?)\s*\|\s*([^|]+?)\s*\|/g)];
@@ -220,7 +245,7 @@ function parseSectioned(text: string, data: OfferData) {
     }
   }
 
-  // Section C: Pricing (pipe-delimited table)
+  // Section C: Pricing
   const sectionC = text.match(/SECTION\s*C[\s\S]*?(?=SECTION\s*D|$)/i);
   if (sectionC) {
     const c = sectionC[0];
@@ -243,16 +268,23 @@ function parseSectioned(text: string, data: OfferData) {
 
     parseInkPrices(c, data);
   }
+
+  // Section E: Delivery & Payment
+  const sectionE = text.match(/SECTION\s*E[\s\S]*?(?=---|$)/i);
+  if (sectionE) {
+    parseDeliveryPayment(sectionE[0], data);
+  }
 }
 
 // ── Format 2: Direct DOCX offer (no SECTION markers) ──
 
 function parseDirectFormat(text: string, data: OfferData) {
-  // Series detection — flexible matching
-  if (/L\s*[&+]\s*P/i.test(text)) data.series = "L&P SERIES";
-  else if (/C[\s-]*Series/i.test(text)) data.series = "C SERIES";
+  // Series detection — check C-Series first (more specific),
+  // L&P requires word boundary to avoid matching "label & packaging"
+  if (/C[\s-]*Series/i.test(text)) data.series = "C SERIES";
+  else if (/\bL\s*[&+]\s*P\b/i.test(text)) data.series = "L&P SERIES";
 
-  // Cover fields — handle "Key:\nValue", "Key: Value", and "Key:\n Value"
+  // Cover fields
   const nlVal = (key: string): string => {
     const re = new RegExp(`(?:^|\\n)\\s*${key}\\s*:?\\s*\\n?\\s*(.+)`, "im");
     const m = text.match(re);
@@ -264,63 +296,89 @@ function parseDirectFormat(text: string, data: OfferData) {
   data.customer_address = nlVal("Address") || data.customer_address;
   data.order_type = nlVal("Order\\s*Type") || data.order_type;
 
+  // Machine subtitle — lines between "COMMERCIAL OFFER" and "Date:"
+  const subtitleMatch = text.match(/COMMERCIAL\s+OFFER\s*\n+([\s\S]*?)(?=\n\s*Date)/i);
+  if (subtitleMatch) {
+    data.machine_subtitle = subtitleMatch[1].trim();
+  }
+
+  // Price validity — "Prices valid for 30 days..."
+  const validityMatch = text.match(/Prices?\s+valid\s+for\s+[^\n]+/i);
+  if (validityMatch) data.price_validity = validityMatch[0].trim();
+
   // Machine description — line after "MACHINE SPECIFICATION" heading
   const specSection = text.match(/MACHINE\s+SPECIFICATION[S]?\s*\n+\s*(.+)/i);
   if (specSection) data.machine_description = specSection[1].trim();
 
   // Specifications — block between MACHINE SPECIFICATION and EQUIPMENT PRICING
-  const specBlock = text.match(/MACHINE\s+SPECIFICATION[S]?[\s\S]*?(?=EQUIPMENT\s+PRICING|PRICING|$)/i);
+  const specBlock = text.match(/MACHINE\s+SPECIFICATION[S]?[\s\S]*?(?=\nEQUIPMENT\s+PRICING|\nPRICING|$)/i);
   if (specBlock) {
     parseSpecsFromPlainText(specBlock[0], data);
   }
 
-  // Pricing — block between EQUIPMENT PRICING and INK PRICING (or other endings)
-  const pricingBlock = text.match(/(?:EQUIPMENT\s+)?PRICING[\s\S]*?(?=INK\s+PRIC|INSTALLATION|GENERAL\s+TERMS|$)/i);
+  // CRITICAL FIX: Pricing block regex — stop at "\nInk" on its own line,
+  // NOT at "Installation" which appears mid-line in "Includes: ...Installation"
+  const pricingBlock = text.match(/EQUIPMENT\s+PRICING[\s\S]*?(?=\nInk\s+Pric|\nTERMS|\nGENERAL\s+TERMS|$)/i);
   if (pricingBlock) {
     parsePricingFromPlainText(pricingBlock[0], data);
   }
 
-  // Pricing note — line starting with * after TOTAL
-  const noteMatch = text.match(/TOTAL\s+OFFER\s+PRICE[\s\S]*?\n\s*(\*[^\n]+)/i);
+  // Pricing note — line starting with * in the pricing block
+  const noteMatch = text.match(/EQUIPMENT\s+PRICING[\s\S]*?(\*Ex\s+Works[^\n]*)/i);
   if (noteMatch) data.pricing_note = noteMatch[1].trim();
 
   // Ink pricing
   parseInkPrices(text, data);
+
+  // Terms, Delivery & Payment section
+  const termsBlock = text.match(/TERMS,?\s*DELIVERY[\s\S]*?(?=\nGENERAL\s+TERMS\s+AND\s+CONDITIONS\s+OF\s+SALE|$)/i);
+  if (termsBlock) {
+    parseDeliveryPayment(termsBlock[0], data);
+  }
 }
 
-/** Parse specs from plain text — improved with looser component matching */
+// ── Spec parser ────────────────────────────────────────────────────
+
+/** Parse specs from ❖-delimited format (DOCX Machine Specification section) */
 function parseSpecsFromPlainText(block: string, data: OfferData) {
   const lines = block.split("\n").map(l => l.trim()).filter(Boolean);
-  // Skip header lines
+
+  // Check for ❖ markers first (DOCX format uses these)
+  const hasMarkers = lines.some(l => l.startsWith("❖") || l.startsWith("*"));
+
+  if (hasMarkers) {
+    let currentSpec: Specification | null = null;
+    for (const line of lines) {
+      if (line.startsWith("❖") || (line.startsWith("*") && line.startsWith("* ") && /[A-Z]{3,}/.test(line))) {
+        if (currentSpec) data.specifications.push(currentSpec);
+        const name = line.replace(/^[❖*]\s*/, "").trim();
+        currentSpec = { name, details: [] };
+      } else if (currentSpec && !line.match(/^MACHINE\s+SPECIFICATION/i)) {
+        currentSpec.details.push(line.replace(/^[—-]\s*/, ""));
+      }
+    }
+    if (currentSpec) data.specifications.push(currentSpec);
+    return;
+  }
+
+  // Fallback: Component name header detection
   const startIdx = lines.findIndex(l => /^Component[s]?$/i.test(l));
   const detailsIdx = lines.findIndex((l, i) => i > startIdx && /^Details?$/i.test(l));
   const begin = detailsIdx >= 0 ? detailsIdx + 1 : (startIdx >= 0 ? startIdx + 1 : 2);
 
-  // Component names that mark spec boundaries — expanded list
   const COMPONENT_NAMES = [
-    "PRINT HEAD", "PRINTHEAD",
-    "ELECTRONIC", "ELECTRONICS",
-    "WEB TRANSPORT", "WEB GUIDE",
-    "UNWINDER", "UNWIND",
-    "REWINDER", "REWIND UNIT", "REWIND",
-    "INK DELIVERY", "INK SYSTEM", "INK SUPPLY",
-    "RIP + SERVER", "RIP SERVER", "RIP",
-    "COATING + DRYING", "COATING", "COATER",
-    "DRYING", "DRYER",
-    "SHEETER", "SHEET CUTTER",
-    "INLINE", "IN-LINE",
-    "FINISHING", "LAMINATION", "LAMINATOR",
-    "POST-COATING", "POST COATING",
-    "CORONA", "CORONA TREATMENT",
-    "UV", "UV CURING",
-    "SERVER", "COMPUTER",
+    "PRINT HEAD", "PRINTHEAD", "ELECTRONIC", "ELECTRONICS",
+    "WEB TRANSPORT", "WEB GUIDE", "UNWINDER", "UNWIND",
+    "REWINDER", "REWIND UNIT", "REWIND", "INK DELIVERY", "INK SYSTEM",
+    "RIP + SERVER", "RIP SERVER", "RIP", "COATING + DRYING", "COATING",
+    "DRYING", "DRYER", "SHEETER", "SHEET CUTTER", "INLINE", "IN-LINE",
+    "FINISHING", "LAMINATION", "POST-COATING", "POST COATING",
+    "CORONA", "UV", "UV CURING", "SERVER", "COMPUTER",
   ];
 
   function isComponentName(line: string): boolean {
     const upper = line.toUpperCase();
-    // Direct match against known names
     if (COMPONENT_NAMES.some(c => upper.startsWith(c))) return true;
-    // Heuristic: ALL CAPS line that isn't a number or header
     if (upper === line && line.length > 3 && line.length < 50 && !/^\d+$/.test(line) && !/^(SR|NO|QTY|AMOUNT|PARTICULARS|TOTAL|EQUIPMENT|MACHINE)/i.test(line)) {
       return true;
     }
@@ -340,108 +398,197 @@ function parseSpecsFromPlainText(block: string, data: OfferData) {
   if (currentSpec) data.specifications.push(currentSpec);
 }
 
-/** Parse pricing from plain text — improved with inline amount detection */
+// ── Pricing parser ─────────────────────────────────────────────────
+
 function parsePricingFromPlainText(block: string, data: OfferData) {
   const lines = block.split("\n").map(l => l.trim()).filter(Boolean);
+  const amountRe = /^[₹$]\s*[\d,]+|^Rs\.?\s*[\d,]+/;
 
-  // Find TOTAL line first
+  // Find TOTAL OFFER PRICE
   for (let i = 0; i < lines.length; i++) {
     if (/TOTAL\s+OFFER\s+PRICE/i.test(lines[i])) {
-      // Amount could be on same line or next line
       const sameLine = lines[i].match(/[₹$]\s*[\d,]+|Rs\.?\s*[\d,]+/);
       if (sameLine) {
         data.total_price = parseAmount(sameLine[0]);
       } else {
-        const nextLine = lines[i + 1] || "";
-        const amt = nextLine.match(/[₹$]\s*[\d,]+|Rs\.?\s*[\d,]+/);
-        if (amt) data.total_price = parseAmount(amt[0]);
+        for (let j = i + 1; j <= i + 2 && j < lines.length; j++) {
+          const amt = lines[j].match(/[₹$]\s*[\d,]+|Rs\.?\s*[\d,]+/);
+          if (amt) { data.total_price = parseAmount(amt[0]); break; }
+        }
       }
       break;
     }
   }
 
-  // Strategy 1: Look for lines with currency amounts, walk backwards for description
-  const amountRe = /^[₹$]\s*[\d,]+|^Rs\.?\s*[\d,]+/;
+  // Parse GST line — "Additional GST @18%" followed by amount
   for (let i = 0; i < lines.length; i++) {
-    if (amountRe.test(lines[i]) && !/TOTAL/i.test(lines[i - 2] || "") && !/TOTAL/i.test(lines[i - 1] || "")) {
-      const price = parseAmount(lines[i]);
-      let desc = "";
-      for (let j = i - 1; j >= Math.max(0, i - 4); j--) {
-        const l = lines[j];
-        if (!l.match(/^\d+$/) && !amountRe.test(l) && !l.match(/^(Sr|Particulars|Qty|Amount|No\.?|Unit)/i)) {
-          desc = l;
-          break;
-        }
-      }
-      if (desc && price > 0) {
-        data.pricing_items.push({ description: desc, price });
+    const gstMatch = lines[i].match(/(?:Additional\s+)?GST\s*@?\s*(\d+%?)/i);
+    if (gstMatch) {
+      data.gst_rate = gstMatch[1].includes("%") ? gstMatch[1] : gstMatch[1] + "%";
+      // Amount on same line or next line
+      const sameAmt = lines[i].match(/[₹$]\s*[\d,]+|Rs\.?\s*[\d,]+/);
+      if (sameAmt) {
+        data.gst_amount = parseAmount(sameAmt[0]);
+      } else if (i + 1 < lines.length) {
+        const nextAmt = lines[i + 1].match(/[₹$]\s*[\d,]+|Rs\.?\s*[\d,]+/);
+        if (nextAmt) data.gst_amount = parseAmount(nextAmt[0]);
       }
     }
   }
 
-  // Strategy 2: Handle inline "Description ... ₹Amount" on same line
+  // Strategy 1: Walk backwards from amount lines to find descriptions
+  for (let i = 0; i < lines.length; i++) {
+    if (!amountRe.test(lines[i])) continue;
+
+    // Skip if this is the GST amount or TOTAL
+    const prevLines = [lines[i - 1] || "", lines[i - 2] || ""];
+    if (prevLines.some(l => /TOTAL|GST/i.test(l))) continue;
+    // Also skip if the current amount was already captured as GST
+    const price = parseAmount(lines[i]);
+    if (price === data.gst_amount && data.gst_amount > 0) continue;
+
+    // Walk back to find description (skip headers, numbers, amounts)
+    let descParts: string[] = [];
+    for (let j = i - 1; j >= Math.max(0, i - 6); j--) {
+      const l = lines[j];
+      if (amountRe.test(l)) break; // hit another amount — stop
+      if (/^(Sr|Particulars|Qty|Amount|No\.?|EQUIPMENT\s+PRICING)/i.test(l)) break;
+      if (l.match(/^\d+$/) && l.length <= 2) continue; // skip serial numbers
+      if (/^Amount\s*\([₹$]/i.test(l)) continue; // skip "Amount (₹)" header
+      descParts.unshift(l);
+    }
+
+    const desc = descParts.join(" | ");
+    if (desc && price > 0) {
+      data.pricing_items.push({ description: desc, price });
+    }
+  }
+
+  // Strategy 2: Inline "Description ... ₹Amount"
   if (data.pricing_items.length === 0) {
     const inlineRe = /^(.+?)\s+[₹$]\s*([\d,]+)\s*$/;
     const inlineRsRe = /^(.+?)\s+Rs\.?\s*([\d,]+)\s*$/;
     for (const line of lines) {
-      if (/TOTAL|SUBTOTAL|HEADER|PARTICULARS/i.test(line)) continue;
+      if (/TOTAL|SUBTOTAL|PARTICULARS|GST/i.test(line)) continue;
       const m = line.match(inlineRe) || line.match(inlineRsRe);
       if (m) {
-        const desc = m[1].trim().replace(/^\d+\.\s*/, ""); // strip leading "1. "
+        const desc = m[1].trim().replace(/^\d+\.\s*/, "");
         const price = parseAmount(m[2]);
-        if (desc && price > 0) {
-          data.pricing_items.push({ description: desc, price });
-        }
-      }
-    }
-  }
-
-  // Strategy 3: Tab/multi-space separated "Sr  Description  Qty  Amount"
-  if (data.pricing_items.length === 0) {
-    for (const line of lines) {
-      if (/TOTAL|SUBTOTAL|HEADER|PARTICULARS|^Sr\b|^No\b/i.test(line)) continue;
-      // Look for lines with at least 2 segments separated by 2+ spaces
-      const segments = line.split(/\s{2,}/).map(s => s.trim()).filter(Boolean);
-      if (segments.length >= 3) {
-        const lastSeg = segments[segments.length - 1];
-        const price = parseAmount(lastSeg);
-        if (price > 0) {
-          // Description is typically the second segment (first is Sr number)
-          const desc = segments.length >= 4 ? segments[1] : segments[0];
-          data.pricing_items.push({ description: desc, price });
-        }
+        if (desc && price > 0) data.pricing_items.push({ description: desc, price });
       }
     }
   }
 }
 
-/** Parse ink prices — improved with more patterns */
+// ── Ink price parser ───────────────────────────────────────────────
+
 function parseInkPrices(text: string, data: OfferData) {
   if (data.ink_prices.length > 0) return;
 
-  // Strategy 1: Specific regex patterns
-  const inkPatterns: [RegExp, string][] = [
-    [/Uncoated\s+Media[\s\S]{0,100}?Black(?:\s+Ink)?[\s\S]{0,50}?([₹$]\s*[\d,]+|Rs\.?\s*[\d,]+)/i, "Uncoated Media per ltr for Black"],
-    [/Uncoated\s+Media[\s\S]{0,100}?(?:Cyan|CMY|Colour)[\s\S]{0,80}?([₹$]\s*[\d,]+|Rs\.?\s*[\d,]+)/i, "Uncoated Media per ltr for Cyan, Magenta, Yellow"],
-    [/Coated\s+Media[\s\S]{0,100}?(?:HD\s+)?Ink[\s\S]{0,50}?([₹$]\s*[\d,]+|Rs\.?\s*[\d,]+)/i, "Coated Media HD Ink per ltr"],
-  ];
-  for (const [pat, desc] of inkPatterns) {
-    const match = text.match(pat);
-    if (match) data.ink_prices.push({ description: desc, price: parseAmount(match[1]) });
+  // Find the Ink Pricing section
+  const inkSection = text.match(/Ink\s+Pric(?:ing|e)[\s\S]*?(?=\nTERMS|\nINSTALLATION|\nGENERAL|\nAdditional\s+GST|$)/i);
+  if (!inkSection) return;
+
+  const lines = inkSection[0].split("\n").map(l => l.trim()).filter(Boolean);
+
+  // Check for ink note (GST on ink)
+  for (const line of lines) {
+    if (/Additional\s+GST.*ink/i.test(line)) {
+      data.ink_note = line;
+    }
   }
 
-  // Strategy 2: Find INK PRICING section and parse line-by-line
+  // Parse ink items — look for description lines followed by price or "[Price on request]"
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    // Skip headers
+    if (/^Ink\s+(Pricing|Type|Price)/i.test(line)) continue;
+    if (/^Price\s+per/i.test(line)) continue;
+    if (/^Additional\s+GST/i.test(line)) continue;
+
+    // Check if this is an ink description (Aqueous Ink, UV Ink, etc.)
+    if (/Ink|Black|Cyan|Magenta|Yellow|CMY|Coated|Uncoated/i.test(line) && !/^Ink\s+Type/i.test(line)) {
+      // Next non-empty line should be the price or "[Price on request]"
+      const nextLine = (lines[i + 1] || "").trim();
+
+      const amtMatch = nextLine.match(/[₹$]\s*[\d,]+|Rs\.?\s*[\d,]+/);
+      if (amtMatch) {
+        data.ink_prices.push({
+          description: line,
+          price: parseAmount(amtMatch[0]),
+          price_text: amtMatch[0].trim(),
+        });
+        i++; // skip the price line
+      } else if (/price\s+on\s+request/i.test(nextLine) || nextLine.startsWith("[")) {
+        data.ink_prices.push({
+          description: line,
+          price: 0,
+          price_text: nextLine.replace(/[[\]]/g, "").trim() || "Price on request",
+        });
+        i++;
+      } else {
+        // Price might be on same line
+        const inlineAmt = line.match(/(.+?)\s+([₹$]\s*[\d,]+|Rs\.?\s*[\d,]+)\s*$/);
+        if (inlineAmt) {
+          data.ink_prices.push({
+            description: inlineAmt[1].trim(),
+            price: parseAmount(inlineAmt[2]),
+            price_text: inlineAmt[2].trim(),
+          });
+        }
+      }
+    }
+  }
+
+  // Fallback: regex-based extraction
   if (data.ink_prices.length === 0) {
-    const inkSection = text.match(/INK\s+PRIC(?:ING|E)[\s\S]*?(?=INSTALLATION|GENERAL\s+TERMS|SERVICE|$)/i);
-    if (inkSection) {
-      const lines = inkSection[0].split("\n").map(l => l.trim()).filter(Boolean);
-      for (const line of lines) {
-        if (/^INK\s+PRIC/i.test(line)) continue;
-        const m = line.match(/^(.+?)\s+[₹$]\s*([\d,]+)/) || line.match(/^(.+?)\s+Rs\.?\s*([\d,]+)/);
-        if (m) {
-          const desc = m[1].trim();
-          const price = parseAmount(m[2]);
-          if (price > 0) data.ink_prices.push({ description: desc, price });
+    const patterns: [RegExp, string][] = [
+      [/Black(?:\s+Ink)?[\s\S]{0,50}?([₹$]\s*[\d,]+|Rs\.?\s*[\d,]+)/i, "Black Ink per ltr"],
+      [/(?:Cyan|CMY|Colour)[\s\S]{0,80}?([₹$]\s*[\d,]+|Rs\.?\s*[\d,]+)/i, "Cyan, Magenta, Yellow per ltr"],
+      [/Coated[\s\S]{0,100}?Ink[\s\S]{0,50}?([₹$]\s*[\d,]+|Rs\.?\s*[\d,]+)/i, "Coated Media HD Ink per ltr"],
+    ];
+    for (const [pat, desc] of patterns) {
+      const match = text.match(pat);
+      if (match) data.ink_prices.push({ description: desc, price: parseAmount(match[1]), price_text: match[1] });
+    }
+  }
+}
+
+// ── Delivery & Payment parser ──────────────────────────────────────
+
+function parseDeliveryPayment(block: string, data: OfferData) {
+  const lines = block.split("\n").map(l => l.trim()).filter(Boolean);
+
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+
+    // Delivery terms — line after "Delivery" heading
+    if (/^Delivery$/i.test(line) && i + 1 < lines.length) {
+      data.delivery_terms = lines[i + 1];
+    }
+
+    // Payment terms — bullet lines after "Payment Terms" heading
+    if (/^Payment\s+Terms$/i.test(line)) {
+      for (let j = i + 1; j < lines.length; j++) {
+        if (lines[j].startsWith("•") || lines[j].startsWith("-") || lines[j].startsWith("*")) {
+          data.payment_terms.push(lines[j].replace(/^[•\-*]\s*/, ""));
+        } else if (data.payment_terms.length > 0) {
+          break; // end of bullet list
+        }
+      }
+    }
+
+    // SECTION E format: "DELIVERY:" and "PAYMENT TERMS:"
+    if (/^DELIVERY\s*:/i.test(line)) {
+      const val = line.replace(/^DELIVERY\s*:\s*/i, "").trim();
+      data.delivery_terms = val || (lines[i + 1] || "");
+    }
+    if (/^PAYMENT\s+TERMS\s*:/i.test(line)) {
+      for (let j = i + 1; j < lines.length; j++) {
+        if (lines[j].startsWith("-") || lines[j].startsWith("*") || lines[j].startsWith("•")) {
+          data.payment_terms.push(lines[j].replace(/^[-*•]\s*/, ""));
+        } else if (data.payment_terms.length > 0) {
+          break;
         }
       }
     }
@@ -451,40 +598,33 @@ function parseInkPrices(text: string, data: OfferData) {
 // ── PDF builder ─────────────────────────────────────────────────────
 
 function tryReadFile(filePath: string): Uint8Array | null {
-  try {
-    return fs.readFileSync(filePath);
-  } catch {
-    return null;
-  }
+  try { return fs.readFileSync(filePath); }
+  catch { return null; }
 }
 
-// Colors
-const RED = rgb(0.831, 0.169, 0.169);       // #D42B2B
-const GREY_DARK = rgb(0.333, 0.333, 0.333); // #555555
-const GREY_MED = rgb(0.467, 0.467, 0.467);  // #777777
+const RED = rgb(0.831, 0.169, 0.169);
+const GREY_DARK = rgb(0.333, 0.333, 0.333);
+const GREY_MED = rgb(0.467, 0.467, 0.467);
 const BLACK = rgb(0, 0, 0);
 const WHITE = rgb(1, 1, 1);
-const LINK_BLUE = rgb(0, 0.4, 0.8);         // #0066CC
-const LIGHT_GREY = rgb(0.867, 0.867, 0.867); // #DDDDDD
-const DOT_GREY = rgb(0.667, 0.667, 0.667);  // #AAAAAA
+const LINK_BLUE = rgb(0, 0.4, 0.8);
+const LIGHT_GREY = rgb(0.867, 0.867, 0.867);
+const DOT_GREY = rgb(0.667, 0.667, 0.667);
 
-/** Replace characters that WinAnsi (standard PDF fonts) can't encode */
 function sanitize(text: string): string {
   let result = text
     .replace(/₹/g, "Rs.")
     .replace(/[❖◆◇♦♢]/g, "*")
-    .replace(/[–—]/g, "-")        // em/en dash → hyphen
-    .replace(/['']/g, "'")        // smart quotes → straight
-    .replace(/[""]/g, '"');       // smart double quotes → straight
+    .replace(/[–—]/g, "-")
+    .replace(/['']/g, "'")
+    .replace(/[""]/g, '"');
 
-  // Strip remaining non-WinAnsi chars and log what was removed
   const stripped = result.match(/[^\x00-\xFF]/g);
   if (stripped && stripped.length > 0) {
     const unique = [...new Set(stripped)];
     console.warn(`[Offer PDF] Stripped non-WinAnsi characters: ${unique.map(c => `U+${c.charCodeAt(0).toString(16).toUpperCase()}`).join(", ")}`);
   }
   result = result.replace(/[^\x00-\xFF]/g, "");
-
   return result;
 }
 
@@ -492,7 +632,6 @@ function textWidth(font: PDFFont, text: string, size: number): number {
   return font.widthOfTextAtSize(text, size);
 }
 
-/** Word-wrap text to fit within maxWidth */
 function wrapText(font: PDFFont, text: string, size: number, maxWidth: number): string[] {
   const words = text.split(/\s+/);
   const lines: string[] = [];
@@ -510,11 +649,7 @@ function wrapText(font: PDFFont, text: string, size: number, maxWidth: number): 
   return lines;
 }
 
-async function embedImageSafe(
-  doc: PDFDocument,
-  filePath: string,
-  type: "png" | "jpg"
-): Promise<PDFImage | null> {
+async function embedImageSafe(doc: PDFDocument, filePath: string, type: "png" | "jpg"): Promise<PDFImage | null> {
   const bytes = tryReadFile(filePath);
   if (!bytes) return null;
   return type === "png" ? doc.embedPng(bytes) : doc.embedJpg(bytes);
@@ -530,16 +665,13 @@ function drawCoverPage(
 ) {
   const { regular, bold, boldItalic } = fonts;
 
-  // Top-left decorative bars
   page.drawRectangle({ x: 45, y: PAGE_H - 80, width: 6, height: 60, color: GREY_DARK });
   page.drawRectangle({ x: 53, y: PAGE_H - 75, width: 6, height: 50, color: RED });
 
-  // Date and Proforma number
   let y = PAGE_H - 130;
   page.drawText(`Date : ${data.date}`, { x: 120, y, font: regular, size: 10, color: BLACK });
   page.drawText(`Proforma Invoice No. : ${data.proforma_no}`, { x: 120, y: y - 16, font: regular, size: 10, color: BLACK });
 
-  // "Proposal for" heading
   y = PAGE_H - 310;
   page.drawText("Proposal for", { x: 100, y, font: regular, size: 24, color: GREY_MED });
 
@@ -547,13 +679,21 @@ function drawCoverPage(
     page.drawImage(logoImage, { x: 80, y: y - 80, width: 300, height: 43 });
   }
 
-  // Series name + "Digital Inkjet Press"
   const ySeries = y - 110;
   page.drawText(data.series, { x: 80, y: ySeries, font: bold, size: 20, color: RED });
   const seriesWidth = textWidth(bold, data.series + " ", 20);
   page.drawText("Digital Inkjet Press", { x: 80 + seriesWidth, y: ySeries, font: boldItalic, size: 20, color: GREY_DARK });
 
-  // Customer
+  // Machine subtitle below series name
+  if (data.machine_subtitle) {
+    const subtitleLines = data.machine_subtitle.split("\n").map(s => s.trim()).filter(Boolean);
+    let ySub = ySeries - 28;
+    for (const line of subtitleLines.slice(0, 3)) {
+      page.drawText(line, { x: 80, y: ySub, font: regular, size: 10, color: GREY_DARK });
+      ySub -= 14;
+    }
+  }
+
   const yCust = PAGE_H - 560;
   page.drawText("Proposal for:-", { x: 100, y: yCust, font: bold, size: 12, color: BLACK });
   page.drawText(`M/s. ${data.customer_name}`, { x: 100, y: yCust - 22, font: bold, size: 12, color: BLACK });
@@ -565,7 +705,11 @@ function drawCoverPage(
     }
   }
 
-  // Bottom-right decoration
+  // Price validity notice
+  if (data.price_validity) {
+    page.drawText(data.price_validity, { x: 100, y: yCust - 90, font: regular, size: 8, color: RED });
+  }
+
   page.drawRectangle({ x: PAGE_W - 100, y: 0, width: 100, height: 120, color: LIGHT_GREY });
   page.drawLine({ start: { x: PAGE_W - 50, y: 15 }, end: { x: PAGE_W - 15, y: 70 }, color: RED, thickness: 2 });
   page.drawLine({ start: { x: PAGE_W - 40, y: 10 }, end: { x: PAGE_W - 5, y: 65 }, color: RED, thickness: 2 });
@@ -574,10 +718,6 @@ function drawCoverPage(
 
 // ── Spec + Pricing pages (multi-page) ──────────────────────────────
 
-/**
- * Draw machine specs and pricing across as many pages as needed.
- * Returns the pages created so they can be added to the document.
- */
 function drawSpecAndPricing(
   pdfDoc: PDFDocument,
   data: OfferData,
@@ -590,37 +730,29 @@ function drawSpecAndPricing(
 ): PDFPage[] {
   const { regular, bold } = fonts;
   const RIGHT_MARGIN = PAGE_W - 100;
-  const CONTENT_WIDTH = RIGHT_MARGIN - 100; // text area between margins
-  const DESC_MAX_WIDTH = CONTENT_WIDTH - 120; // leave room for price column
+  const CONTENT_WIDTH = RIGHT_MARGIN - 100;
+  const DESC_MAX_WIDTH = CONTENT_WIDTH - 120;
   const pages: PDFPage[] = [];
 
   let page = pdfDoc.addPage([PAGE_W, PAGE_H]);
   pages.push(page);
 
-  // Draw background on first page
   if (images.pricingBg) {
     page.drawImage(images.pricingBg, { x: 0, y: 0, width: PAGE_W, height: PAGE_H });
   }
 
-  // Dot grid decoration
+  // Dot grid
   const dotStartX = PAGE_W - 85;
   const dotStartY = PAGE_H - 15;
   for (let row = 0; row < 7; row++) {
     for (let col = 0; col < 10; col++) {
-      page.drawCircle({
-        x: dotStartX + col * 8,
-        y: dotStartY - row * 8,
-        size: 1.8,
-        color: DOT_GREY,
-      });
+      page.drawCircle({ x: dotStartX + col * 8, y: dotStartY - row * 8, size: 1.8, color: DOT_GREY });
     }
   }
 
-  // Helper: create overflow page
   function newPage(): PDFPage {
     const p = pdfDoc.addPage([PAGE_W, PAGE_H]);
     pages.push(p);
-    // Overflow pages get background too (for consistent look)
     if (images.pricingBg) {
       p.drawImage(images.pricingBg, { x: 0, y: 0, width: PAGE_W, height: PAGE_H });
     }
@@ -632,8 +764,9 @@ function drawSpecAndPricing(
     page.drawImage(images.specTitle, { x: 55, y: PAGE_H - 75, width: 190, height: 52 });
   }
 
-  // Machine description (wrapped)
   let y = PAGE_H - 100;
+
+  // Machine description (wrapped)
   if (data.machine_description) {
     const descLines = wrapText(bold, data.machine_description, 10, CONTENT_WIDTH - 60);
     for (const line of descLines) {
@@ -643,120 +776,89 @@ function drawSpecAndPricing(
     y -= 8;
   }
 
-  // ── Spec bullets (with page overflow) ──
+  // ── Spec bullets ──
   for (const spec of data.specifications) {
-    // Estimate height: name line + detail lines
     const detailHeight = spec.details.length * 10 + 16;
     if (y - detailHeight < PAGE_BOTTOM) {
       page = newPage();
       y = PAGE_H - 60;
     }
 
-    // Diamond marker
     const dSize = 2.5;
     page.drawRectangle({
       x: 168 - dSize, y: y + 3 - dSize,
       width: dSize * 2, height: dSize * 2,
-      color: RED,
-      rotate: degrees(45),
+      color: RED, rotate: degrees(45),
     });
 
-    // Spec name (bold + underline)
     const nameWidth = textWidth(bold, spec.name, 8);
     page.drawText(spec.name, { x: 180, y, font: bold, size: 8, color: BLACK });
-    page.drawLine({
-      start: { x: 180, y: y - 1.5 },
-      end: { x: 180 + nameWidth, y: y - 1.5 },
-      color: BLACK,
-      thickness: 0.5,
-    });
+    page.drawLine({ start: { x: 180, y: y - 1.5 }, end: { x: 180 + nameWidth, y: y - 1.5 }, color: BLACK, thickness: 0.5 });
     y -= 12;
 
     for (const detail of spec.details) {
-      if (y < PAGE_BOTTOM) {
-        page = newPage();
-        y = PAGE_H - 60;
-      }
-      // Wrap long detail lines
+      if (y < PAGE_BOTTOM) { page = newPage(); y = PAGE_H - 60; }
       const detailLines = wrapText(regular, detail, 7, CONTENT_WIDTH - 85);
       for (const dl of detailLines) {
         page.drawText(dl, { x: 185, y, font: regular, size: 7, color: GREY_DARK });
         y -= 10;
-        if (y < PAGE_BOTTOM) {
-          page = newPage();
-          y = PAGE_H - 60;
-        }
+        if (y < PAGE_BOTTOM) { page = newPage(); y = PAGE_H - 60; }
       }
     }
     y -= 4;
   }
 
-  // ── Equipment Pricing section ──
-  // Add spacing before pricing
+  // ── Equipment Pricing ──
   y -= 30;
-  if (y < PAGE_BOTTOM + 100) {
-    page = newPage();
-    y = PAGE_H - 60;
-  }
+  if (y < PAGE_BOTTOM + 100) { page = newPage(); y = PAGE_H - 60; }
 
-  // Equipment Pricing title image
   if (images.pricingTitle) {
     page.drawImage(images.pricingTitle, { x: PAGE_W - 260, y: y + 5, width: 190, height: 55 });
   }
   y -= 20;
 
-  // Pricing lines (with wrapping and overflow)
+  // Pricing lines
   for (const item of data.pricing_items) {
-    // Wrap description to prevent collision with price column
     const descLines = wrapText(bold, item.description, 9, DESC_MAX_WIDTH);
     const lineHeight = descLines.length * 13;
 
-    if (y - lineHeight < PAGE_BOTTOM) {
-      page = newPage();
-      y = PAGE_H - 60;
-    }
+    if (y - lineHeight < PAGE_BOTTOM) { page = newPage(); y = PAGE_H - 60; }
 
-    // Draw description lines
+    const firstLineY = y;
     for (let i = 0; i < descLines.length; i++) {
       page.drawText(descLines[i], { x: 100, y, font: bold, size: 9, color: BLACK });
       if (i < descLines.length - 1) y -= 13;
     }
 
-    // Draw price right-aligned on the first description line's Y
     if (item.price > 0) {
       const priceStr = fmtPrice(item.price, data.currency);
       const priceW = textWidth(bold, priceStr, 9);
-      // Price on same line as first desc line (go back up)
-      const priceY = y + (descLines.length - 1) * 13;
-      page.drawText(priceStr, { x: RIGHT_MARGIN - priceW, y: priceY, font: bold, size: 9, color: BLACK });
+      page.drawText(priceStr, { x: RIGHT_MARGIN - priceW, y: firstLineY, font: bold, size: 9, color: BLACK });
     }
+    y -= 15;
+  }
 
+  // GST line
+  if (data.gst_amount > 0) {
+    if (y < PAGE_BOTTOM + 20) { page = newPage(); y = PAGE_H - 60; }
+    const gstDesc = `Additional GST @${data.gst_rate || "18%"}`;
+    page.drawText(gstDesc, { x: 100, y, font: bold, size: 9, color: RED });
+    const gstStr = fmtPrice(data.gst_amount, data.currency);
+    const gstW = textWidth(bold, gstStr, 9);
+    page.drawText(gstStr, { x: RIGHT_MARGIN - gstW, y, font: bold, size: 9, color: RED });
     y -= 15;
   }
 
   // Total price line
   if (data.total_price) {
-    if (y < PAGE_BOTTOM + 20) {
-      page = newPage();
-      y = PAGE_H - 60;
-    }
-    y -= 5;
-    page.drawLine({
-      start: { x: 100, y: y + 8 },
-      end: { x: RIGHT_MARGIN, y: y + 8 },
-      color: BLACK,
-      thickness: 0.5,
-    });
+    if (y < PAGE_BOTTOM + 20) { page = newPage(); y = PAGE_H - 60; }
+    y -= 3;
+    page.drawLine({ start: { x: 100, y: y + 8 }, end: { x: RIGHT_MARGIN, y: y + 8 }, color: BLACK, thickness: 0.5 });
     page.drawText("TOTAL OFFER PRICE", { x: 100, y, font: bold, size: 10, color: BLACK });
     const totalStr = fmtPrice(data.total_price, data.currency);
     const totalW = textWidth(bold, totalStr, 10);
     page.drawText(totalStr, { x: RIGHT_MARGIN - totalW, y, font: bold, size: 10, color: BLACK });
-    page.drawLine({
-      start: { x: 100, y: y - 4 },
-      end: { x: RIGHT_MARGIN, y: y - 4 },
-      color: BLACK,
-      thickness: 0.5,
-    });
+    page.drawLine({ start: { x: 100, y: y - 4 }, end: { x: RIGHT_MARGIN, y: y - 4 }, color: BLACK, thickness: 0.5 });
     y -= 20;
   }
 
@@ -771,7 +873,7 @@ function drawSpecAndPricing(
     y -= 8;
   }
 
-  // Ink pricing
+  // ── Ink Pricing ──
   if (data.ink_prices.length > 0) {
     if (y < PAGE_BOTTOM + 60) { page = newPage(); y = PAGE_H - 60; }
     y -= 5;
@@ -779,32 +881,76 @@ function drawSpecAndPricing(
     y -= 16;
     for (const ink of data.ink_prices) {
       if (y < PAGE_BOTTOM) { page = newPage(); y = PAGE_H - 60; }
-      // Wrap ink description
       const inkDescLines = wrapText(regular, ink.description, 8.5, DESC_MAX_WIDTH);
+      const firstY = y;
       for (let i = 0; i < inkDescLines.length; i++) {
         page.drawText(inkDescLines[i], { x: 100, y, font: regular, size: 8.5, color: BLACK });
         if (i < inkDescLines.length - 1) y -= 12;
       }
-      const inkStr = fmtPrice(ink.price, data.currency);
-      const inkW = textWidth(regular, inkStr, 8.5);
-      page.drawText(inkStr, { x: RIGHT_MARGIN - inkW, y: y + (inkDescLines.length - 1) * 12, font: regular, size: 8.5, color: BLACK });
+      // Show price or "Price on request" text
+      if (ink.price > 0) {
+        const inkStr = fmtPrice(ink.price, data.currency);
+        const inkW = textWidth(regular, inkStr, 8.5);
+        page.drawText(inkStr, { x: RIGHT_MARGIN - inkW, y: firstY, font: regular, size: 8.5, color: BLACK });
+      } else if (ink.price_text) {
+        const txtW = textWidth(regular, ink.price_text, 8.5);
+        page.drawText(ink.price_text, { x: RIGHT_MARGIN - txtW, y: firstY, font: regular, size: 8.5, color: GREY_MED });
+      }
+      y -= 14;
+    }
+    // Ink note
+    if (data.ink_note) {
+      page.drawText(data.ink_note, { x: 100, y, font: regular, size: 7, color: GREY_DARK });
       y -= 14;
     }
   }
 
-  // Installation terms (wrapped)
-  if (data.installation_terms) {
-    if (y < PAGE_BOTTOM + 40) { page = newPage(); y = PAGE_H - 60; }
-    y -= 10;
-    const lines = wrapText(bold, data.installation_terms, 8, CONTENT_WIDTH);
-    for (const line of lines) {
-      if (y < PAGE_BOTTOM) { page = newPage(); y = PAGE_H - 60; }
-      page.drawText(line, { x: 100, y, font: bold, size: 8, color: BLACK });
-      y -= 12;
+  // ── Delivery & Payment Terms ──
+  if (data.delivery_terms || data.payment_terms.length > 0) {
+    if (y < PAGE_BOTTOM + 80) { page = newPage(); y = PAGE_H - 60; }
+    y -= 15;
+
+    if (data.delivery_terms) {
+      page.drawText("Delivery:", { x: 100, y, font: bold, size: 8.5, color: BLACK });
+      y -= 13;
+      const deliveryLines = wrapText(regular, data.delivery_terms, 8, CONTENT_WIDTH);
+      for (const line of deliveryLines) {
+        page.drawText(line, { x: 100, y, font: regular, size: 8, color: BLACK });
+        y -= 11;
+      }
+      y -= 6;
+    }
+
+    if (data.payment_terms.length > 0) {
+      page.drawText("Payment Terms:", { x: 100, y, font: bold, size: 8.5, color: BLACK });
+      y -= 13;
+      for (const term of data.payment_terms) {
+        if (y < PAGE_BOTTOM) { page = newPage(); y = PAGE_H - 60; }
+        const termLines = wrapText(regular, `- ${term}`, 8, CONTENT_WIDTH);
+        for (const line of termLines) {
+          page.drawText(line, { x: 100, y, font: regular, size: 8, color: BLACK });
+          y -= 11;
+        }
+      }
+      y -= 6;
     }
   }
 
-  // Service commitment (wrapped)
+  // ── Installation terms ──
+  if (data.installation_terms) {
+    if (y < PAGE_BOTTOM + 40) { page = newPage(); y = PAGE_H - 60; }
+    y -= 10;
+    page.drawText("Installation:", { x: 100, y, font: bold, size: 8.5, color: BLACK });
+    y -= 13;
+    const lines = wrapText(regular, data.installation_terms, 8, CONTENT_WIDTH);
+    for (const line of lines) {
+      if (y < PAGE_BOTTOM) { page = newPage(); y = PAGE_H - 60; }
+      page.drawText(line, { x: 100, y, font: regular, size: 8, color: BLACK });
+      y -= 11;
+    }
+  }
+
+  // ── Service commitment ──
   if (data.service_commitment) {
     if (y < PAGE_BOTTOM + 30) { page = newPage(); y = PAGE_H - 60; }
     y -= 8;
@@ -816,7 +962,7 @@ function drawSpecAndPricing(
     }
   }
 
-  // T&C links
+  // ── T&C links ──
   if (y < PAGE_BOTTOM + 60) { page = newPage(); y = PAGE_H - 60; }
   y -= 10;
   page.drawText("General Terms and Conditions", { x: 100, y, font: bold, size: 8, color: BLACK });
@@ -843,13 +989,11 @@ function drawSpecAndPricing(
 // ── Main PDF generator ─────────────────────────────────────────────
 
 export async function generateOfferPdf(rawData: OfferData): Promise<Uint8Array> {
-  // Audit parsed data before building PDF
   const warnings = auditParsedData(rawData);
   if (warnings.missing.length > 0) {
     console.warn(`[Offer PDF] ${warnings.missing.length} missing field(s) — PDF may be incomplete`);
   }
 
-  // Sanitize all text fields for WinAnsi encoding
   const data: OfferData = {
     ...rawData,
     series: sanitize(rawData.series),
@@ -858,9 +1002,14 @@ export async function generateOfferPdf(rawData: OfferData): Promise<Uint8Array> 
     customer_name: sanitize(rawData.customer_name),
     customer_address: sanitize(rawData.customer_address),
     machine_description: sanitize(rawData.machine_description),
+    machine_subtitle: sanitize(rawData.machine_subtitle),
     pricing_note: sanitize(rawData.pricing_note),
+    ink_note: sanitize(rawData.ink_note),
     installation_terms: sanitize(rawData.installation_terms),
     service_commitment: sanitize(rawData.service_commitment),
+    delivery_terms: sanitize(rawData.delivery_terms),
+    payment_terms: rawData.payment_terms.map(sanitize),
+    price_validity: sanitize(rawData.price_validity),
     specifications: rawData.specifications.map(s => ({
       name: sanitize(s.name),
       details: s.details.map(sanitize),
@@ -872,30 +1021,26 @@ export async function generateOfferPdf(rawData: OfferData): Promise<Uint8Array> 
     ink_prices: rawData.ink_prices.map(i => ({
       description: sanitize(i.description),
       price: i.price,
+      price_text: sanitize(i.price_text),
     })),
   };
 
-  // Determine series → template path
   const isLP = data.series.toUpperCase().includes("L&P") || data.series.toUpperCase().includes("L & P");
   const seriesDir = isLP ? "lp_series" : "cseries";
   const templatePath = isLP
     ? path.join(ASSETS_BASE, "lp_series", "24080A_template.pdf")
     : path.join(ASSETS_BASE, "cseries", "25126_template.pdf");
 
-  // Load template PDF for boilerplate pages
   const templateBytes = fs.readFileSync(templatePath);
   const templateDoc = await PDFDocument.load(templateBytes);
   const templatePageCount = templateDoc.getPageCount();
 
-  // Create output PDF
   const pdfDoc = await PDFDocument.create();
 
-  // Embed fonts
   const regular = await pdfDoc.embedFont(StandardFonts.Helvetica);
   const bold = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
   const boldItalic = await pdfDoc.embedFont(StandardFonts.HelveticaBoldOblique);
 
-  // Embed images
   const brandDir = path.join(ASSETS_BASE, seriesDir);
   const logoImage = await embedImageSafe(pdfDoc, path.join(brandDir, "image6.png"), "png");
   const pricingBg = await embedImageSafe(pdfDoc, path.join(brandDir, "image18.jpg"), "jpg");
@@ -906,19 +1051,16 @@ export async function generateOfferPdf(rawData: OfferData): Promise<Uint8Array> 
   const coverPage = pdfDoc.addPage([PAGE_W, PAGE_H]);
   drawCoverPage(coverPage, data, { regular, bold, boldItalic }, logoImage);
 
-  // Pages 2 through N-1: Boilerplate from template (skip first and last page)
+  // Boilerplate pages from template (skip first and last)
   if (templatePageCount > 2) {
-    const boilerplateIndices = Array.from(
-      { length: templatePageCount - 2 },
-      (_, i) => i + 1
-    );
-    const copiedPages = await pdfDoc.copyPages(templateDoc, boilerplateIndices);
+    const indices = Array.from({ length: templatePageCount - 2 }, (_, i) => i + 1);
+    const copiedPages = await pdfDoc.copyPages(templateDoc, indices);
     for (const copied of copiedPages) {
       pdfDoc.addPage(copied);
     }
   }
 
-  // Spec + Pricing pages (as many as needed)
+  // Spec + Pricing pages
   drawSpecAndPricing(pdfDoc, data, { regular, bold }, { pricingBg, specTitle, pricingTitle });
 
   return pdfDoc.save();
