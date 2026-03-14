@@ -338,18 +338,18 @@ export function generateDashboardHTML(data: DashboardData): string {
   .search-kbd { font-size: 10px; color: var(--text-quaternary); border: 1px solid var(--border); border-radius: 4px; padding: 1px 5px; flex-shrink: 0; }
   .content { padding: 36px 40px; max-width: 1200px; }
   .page { display: none; } .page.active { display: block; }
-  .page-header { margin-bottom: 36px; }
+  .page-header { margin-bottom: 44px; }
   .page-title { font-size: 22px; font-weight: 600; color: var(--text-primary); margin-bottom: 6px; letter-spacing: -0.4px; }
   .page-desc { font-size: 14px; color: var(--text-secondary); max-width: 640px; line-height: 1.6; }
-  .kpi-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 14px; margin-bottom: 36px; }
+  .kpi-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 14px; margin-bottom: 48px; }
   .kpi-card { background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius); padding: 22px; transition: border-color 0.15s; }
   .kpi-card:hover { border-color: var(--border-hover); }
   .kpi-label { font-size: 12px; color: var(--text-secondary); margin-bottom: 10px; font-weight: 400; }
   .kpi-value { font-size: 30px; font-weight: 600; color: var(--text-primary); letter-spacing: -1px; line-height: 1; }
   .kpi-sub { font-size: 12px; color: var(--text-tertiary); margin-top: 6px; }
-  .section-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 18px; }
+  .section-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px; }
   .section-title { font-size: 15px; font-weight: 600; color: var(--text-primary); letter-spacing: -0.2px; }
-  .timeline-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; margin-bottom: 36px; }
+  .timeline-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; margin-bottom: 48px; }
   .timeline-card { background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius); padding: 22px; position: relative; overflow: hidden; transition: border-color 0.15s; }
   .timeline-card:hover { border-color: var(--border-hover); }
   .timeline-card::before { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 2px; }
@@ -363,7 +363,7 @@ export function generateDashboardHTML(data: DashboardData): string {
   .tc-count { font-size: 28px; font-weight: 700; color: var(--text-primary); letter-spacing: -1px; }
   .tc-count-label { font-size: 12px; color: var(--text-secondary); }
   .tc-desc { font-size: 12px; color: var(--text-tertiary); margin-top: 12px; line-height: 1.6; }
-  .charts-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-bottom: 36px; }
+  .charts-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-bottom: 48px; }
   .chart-card { background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius); padding: 24px; }
   .chart-card h3 { font-size: 14px; font-weight: 500; color: var(--text-primary); margin-bottom: 20px; }
   .donut-wrap { display: flex; align-items: center; gap: 28px; }
@@ -372,7 +372,7 @@ export function generateDashboardHTML(data: DashboardData): string {
   .dl-dot { width: 10px; height: 10px; border-radius: 3px; flex-shrink: 0; }
   .dl-count { color: var(--text-tertiary); font-size: 12px; }
   canvas { max-width: 100%; }
-  .rec-box { background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius); padding: 20px; margin-bottom: 32px; border-left: 3px solid var(--accent); }
+  .rec-box { background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius); padding: 20px; margin-bottom: 48px; border-left: 3px solid var(--accent); }
   .rec-box h3 { font-size: 14px; font-weight: 600; color: var(--text-primary); margin-bottom: 8px; }
   .rec-box p { font-size: 13px; color: var(--text-secondary); line-height: 1.7; }
   .rec-box p strong { color: var(--text-primary); }
@@ -564,7 +564,7 @@ export function generateDashboardHTML(data: DashboardData): string {
   .kanban-legend-label { font-size: 12px; color: var(--text-quaternary); }
   .kanban-legend-item { font-size: 12px; display: flex; align-items: center; gap: 4px; color: var(--text-secondary); }
   .kanban-legend-dot { width: 8px; height: 8px; border-radius: 2px; }
-  .progress-bar-wrap { margin-bottom: 32px; }
+  .progress-bar-wrap { margin-bottom: 48px; }
   .progress-bar-header { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 8px; }
   .progress-bar-label { font-size: 13px; color: var(--text-secondary); }
   .progress-bar-pct { font-size: 13px; color: var(--text-primary); font-weight: 600; }
@@ -577,7 +577,7 @@ export function generateDashboardHTML(data: DashboardData): string {
   .search-result .sr-name { font-size: 13px; color: var(--text-primary); }
   .search-result .sr-meta { font-size: 11px; color: var(--text-tertiary); margin-left: auto; }
   /* Overview: Readiness Strip */
-  .readiness-strip { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; margin-bottom: 36px; }
+  .readiness-strip { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; margin-bottom: 48px; }
   .readiness-card { background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius); padding: 24px; cursor: pointer; transition: border-color 0.15s, background 0.15s; position: relative; border-left: 3px solid var(--border); }
   .readiness-card:hover { border-color: var(--border-hover); background: var(--bg-card-hover); }
   .readiness-card.rc-green { border-left-color: var(--green); }
@@ -593,7 +593,7 @@ export function generateDashboardHTML(data: DashboardData): string {
   .readiness-card:hover .readiness-arrow { transform: translateX(3px); color: var(--text-secondary); }
 
   /* Overview: Skill × Tier Matrix */
-  .skill-tier-matrix { background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius); padding: 24px; margin-bottom: 36px; }
+  .skill-tier-matrix { background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius); padding: 24px; margin-bottom: 48px; }
   .skill-tier-matrix h3 { font-size: 14px; font-weight: 600; color: var(--text-primary); margin-bottom: 20px; }
   .matrix-legend { display: flex; gap: 16px; margin-bottom: 16px; flex-wrap: wrap; }
   .matrix-legend-item { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--text-secondary); }
@@ -618,10 +618,10 @@ export function generateDashboardHTML(data: DashboardData): string {
   .tc-readiness.ready-low { background: rgba(196,58,58,0.12); color: var(--red); }
 
   /* Overview: Action Items */
-  .action-section { margin-bottom: 36px; }
+  .action-section { margin-bottom: 48px; }
   .action-section-title { font-size: 15px; font-weight: 600; color: var(--text-primary); margin-bottom: 16px; letter-spacing: -0.2px; }
   .action-list-2col { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
-  .action-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 32px; }
+  .action-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 48px; }
   .action-card { background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius); padding: 20px; }
   .action-card h3 { font-size: 14px; font-weight: 600; color: var(--text-primary); margin-bottom: 16px; }
   .action-list { display: flex; flex-direction: column; gap: 8px; }
@@ -671,7 +671,7 @@ export function generateDashboardHTML(data: DashboardData): string {
   @media (max-width: 768px) { .ct-grid { grid-template-columns: 1fr; } }
 
   /* Project Architecture Map */
-  .pm-section { margin-top: 32px; }
+  .pm-section { margin-top: 48px; }
   .pm-section-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; }
   .pm-legend { display: flex; gap: 16px; align-items: center; font-size: 11px; color: var(--text-tertiary); }
   .pm-legend-item { display: flex; align-items: center; gap: 4px; }
